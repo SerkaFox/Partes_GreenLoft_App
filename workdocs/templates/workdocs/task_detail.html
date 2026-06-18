@@ -74,7 +74,7 @@
       </div>
       <div class="card-body task-comments {% if chat_items|length > 3 %}task-comments-scroll{% endif %}">
         {% for item in chat_items %}
-        <div class="task-comment" id="{% if item.kind == 'comment' %}comment-{{ item.event.pk }}{% elif item.kind == 'voice' %}voice-{{ item.report.pk }}{% else %}file-{{ item.file.pk }}{% endif %}">
+        <div class="task-comment {% if item.kind == 'comment' and item.event.is_unread %}task-comment-unread{% endif %}" id="{% if item.kind == 'comment' %}comment-{{ item.event.pk }}{% elif item.kind == 'voice' %}voice-{{ item.report.pk }}{% else %}file-{{ item.file.pk }}{% endif %}">
           {% if item.kind == 'comment' and item.event.parent_event %}
           <a class="comment-reply-context text-decoration-none" href="#comment-{{ item.event.parent_event.pk }}">
             Respuesta a {{ item.event.parent_event.user.get_full_name|default:item.event.parent_event.user.username }}: {{ item.event.parent_event.comment|truncatechars:90 }}
@@ -99,7 +99,12 @@
                 </div>
               </div>
             </div>
-            <div class="compact-meta text-nowrap">{{ item.created_at|date:'d/m/Y H:i' }}</div>
+            <div class="compact-meta text-nowrap">
+              {{ item.created_at|date:'d/m/Y H:i' }}
+              {% if item.kind == 'comment' and item.event.user_id == request.user.id %}
+              <span class="read-checks" title="{% if item.event.read_by_others %}Leído{% else %}Enviado{% endif %}">{% if item.event.read_by_others %}✓✓{% else %}✓{% endif %}</span>
+              {% endif %}
+            </div>
           </div>
           {% if item.kind == 'comment' %}
           <div class="mt-2">{{ item.event.comment|linebreaksbr }}</div>

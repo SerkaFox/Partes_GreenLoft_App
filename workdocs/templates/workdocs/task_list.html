@@ -45,6 +45,7 @@
           {% with message_count=task.comment_count|add:task.voice_count|add:task.file_count %}
           {% if message_count %}<div><span class="badge text-bg-secondary mt-2">{{ message_count }} mensaje{% if message_count != 1 %}s{% endif %}</span></div>{% endif %}
           {% endwith %}
+          {% if task.unread_count %}<div><span class="badge text-bg-success mt-2">{{ task.unread_count }} nuevo{% if task.unread_count != 1 %}s{% endif %}</span></div>{% endif %}
         </div>
       </div>
     </a>

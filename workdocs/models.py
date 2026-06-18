@@ -227,3 +227,17 @@ class TaskEvent(models.Model):
 
     def __str__(self):
         return f'{self.get_event_type_display()} - {self.task}'
+
+
+class TaskEventRead(models.Model):
+    event = models.ForeignKey(TaskEvent, on_delete=models.CASCADE, related_name='reads')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='read_task_events')
+    read_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ('event', 'user')
+        verbose_name = 'Lectura de evento'
+        verbose_name_plural = 'Lecturas de eventos'
+
+    def __str__(self):
+        return f'{self.user} leyó {self.event_id}'

@@ -13,7 +13,7 @@ from partes.forms import VehiculoForm
 from partes.models import Vehiculo
 
 from .forms import CommentForm, ProfileForm, TaskFileForm, TaskForm, UserCreateForm, UserEditForm, VoiceReportForm
-from .models import Task, TaskEvent, TaskFile, TaskVoiceReport, UserProfile
+from .models import Task, TaskEvent, TaskEventRead, TaskFile, TaskVoiceReport, UserProfile
 from .utils import detect_file_type, get_user_role, is_admin, is_manager, is_technician
 
 User = get_user_model()
@@ -124,6 +124,20 @@ def _with_comment_count(qs):
     )
 
 
+def _attach_unread_counts(tasks, user):
+    task_list = list(tasks)
+    if not task_list:
+        return task_list
+    counts = TaskEvent.objects.filter(
+        task_id__in=[task.pk for task in task_list],
+        event_type=TaskEvent.EVENT_COMMENT,
+    ).exclude(user=user).exclude(reads__user=user).values('task_id').annotate(count=Count('id'))
+    by_task = {item['task_id']: item['count'] for item in counts}
+    for task in task_list:
+        task.unread_count = by_task.get(task.pk, 0)
+    return task_list
+
+
 def _can_edit_task(user, task):
     role = get_user_role(user)
     return role == UserProfile.ROLE_ADMIN or (role == UserProfile.ROLE_MANAGER and task.created_by_id == user.id)
@@ -151,14 +165,35 @@ def _task_user_url(user, viewer):
     return _comment_user_url(user)
 
 
-def _chat_items(task, viewer):
+def _unread_event_ids(task, user):
+    return set(
+        task.events.filter(event_type=TaskEvent.EVENT_COMMENT)
+        .exclude(user=user)
+        .exclude(reads__user=user)
+        .values_list('id', flat=True)
+    )
+
+
+def _mark_task_events_read(task, user):
+    unread_ids = _unread_event_ids(task, user)
+    TaskEventRead.objects.bulk_create(
+        [TaskEventRead(event_id=event_id, user=user) for event_id in unread_ids],
+        ignore_conflicts=True,
+    )
+    return unread_ids
+
+
+def _chat_items(task, viewer, unread_event_ids=None):
+    unread_event_ids = unread_event_ids or set()
     items = []
-    comments = task.events.filter(event_type=TaskEvent.EVENT_COMMENT).select_related('user', 'parent_event', 'parent_event__user')
+    comments = task.events.filter(event_type=TaskEvent.EVENT_COMMENT).select_related('user', 'parent_event', 'parent_event__user').prefetch_related('reads')
     for event in comments:
         _ensure_profile(event.user)
         if event.parent_event_id:
             _ensure_profile(event.parent_event.user)
         event.user_url = _task_user_url(event.user, viewer)
+        event.is_unread = event.id in unread_event_ids
+        event.read_by_others = event.user_id == viewer.id and any(read.user_id != viewer.id for read in event.reads.all())
         items.append({
             'kind': 'comment',
             'created_at': event.created_at,
@@ -273,7 +308,7 @@ def dashboard(request):
     active_tasks = _with_comment_count(qs.filter(status__in=active_statuses))
     context = {
         'role': role,
-        'tasks': active_tasks[:40],
+        'tasks': _attach_unread_counts(active_tasks[:40], request.user),
         'active_count': qs.filter(status__in=active_statuses).count(),
         'finished_count': qs.filter(status=Task.STATUS_FINALIZADA).count(),
         'pending_count': qs.exclude(status__in=[Task.STATUS_FINALIZADA, Task.STATUS_CANCELADA]).count(),
@@ -336,7 +371,7 @@ def task_list(request):
         qs = qs.filter(Q(title__icontains=q) | Q(address__icontains=q) | Q(description__icontains=q))
     qs = _with_comment_count(qs)
     return render(request, 'workdocs/task_list.html', {
-        'tasks': qs[:300],
+        'tasks': _attach_unread_counts(qs[:300], request.user),
         'statuses': Task.STATUS_CHOICES,
         'technicians': _technicians(),
         'filters': {'status': status, 'documents': documents, 'technician': technician, 'q': q},
@@ -448,7 +483,12 @@ def task_detail(request, pk):
         {'user': technician, 'url': _task_user_url(technician, request.user)}
         for technician in task.assigned_technicians
     ]
-    chat_items = _chat_items(task, request.user)
+    unread_event_ids = _unread_event_ids(task, request.user)
+    chat_items = _chat_items(task, request.user, unread_event_ids)
+    TaskEventRead.objects.bulk_create(
+        [TaskEventRead(event_id=event_id, user=request.user) for event_id in unread_event_ids],
+        ignore_conflicts=True,
+    )
     return render(request, 'workdocs/task_detail.html', {
         'task': task,
         'map_coords': f'{task.latitude},{task.longitude}' if task.latitude and task.longitude else '',
