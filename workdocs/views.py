@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -64,6 +64,17 @@ def _visible_tasks(user):
     return qs.filter(assigned_to=user)
 
 
+def _active_statuses():
+    return [
+        Task.STATUS_NUEVA,
+        Task.STATUS_ASIGNADA,
+        Task.STATUS_EN_CAMINO,
+        Task.STATUS_EN_OBJETO,
+        Task.STATUS_EN_PROCESO,
+        Task.STATUS_PENDIENTE_REVISION,
+    ]
+
+
 def _can_edit_task(user, task):
     role = get_user_role(user)
     return role == UserProfile.ROLE_ADMIN or (role == UserProfile.ROLE_MANAGER and task.created_by_id == user.id)
@@ -108,29 +119,47 @@ def _save_description_audio(task, user, uploaded):
 def dashboard(request):
     role = get_user_role(request.user)
     qs = _visible_tasks(request.user)
-    active_statuses = [
-        Task.STATUS_NUEVA,
-        Task.STATUS_ASIGNADA,
-        Task.STATUS_EN_CAMINO,
-        Task.STATUS_EN_OBJETO,
-        Task.STATUS_EN_PROCESO,
-        Task.STATUS_PENDIENTE_REVISION,
-    ]
+    active_statuses = _active_statuses()
+    active_tasks = qs.filter(status__in=active_statuses)
     context = {
         'role': role,
-        'tasks': qs[:40],
+        'tasks': active_tasks[:40],
         'active_count': qs.filter(status__in=active_statuses).count(),
         'finished_count': qs.filter(status=Task.STATUS_FINALIZADA).count(),
         'pending_count': qs.exclude(status__in=[Task.STATUS_FINALIZADA, Task.STATUS_CANCELADA]).count(),
         'new_documents_count': TaskFile.objects.filter(task__in=qs).count(),
         'technicians': [],
     }
-    if role == UserProfile.ROLE_ADMIN:
-        context['technicians'] = _technicians().annotate(active_tasks=Count(
-            'assigned_work_tasks',
-            filter=Q(assigned_work_tasks__status__in=active_statuses),
-        ))
+    if role in {UserProfile.ROLE_ADMIN, UserProfile.ROLE_MANAGER}:
+        today = timezone.localdate()
+        technician_scope = active_tasks.filter(Q(created_at__date=today) | Q(updated_at__date=today) | Q(status__in=active_statuses))
+        context['technicians'] = (
+            _technicians()
+            .filter(assigned_work_tasks__in=technician_scope)
+            .annotate(
+                active_tasks=Count('assigned_work_tasks', filter=Q(assigned_work_tasks__in=technician_scope), distinct=True),
+                last_activity=Max('assigned_work_tasks__updated_at', filter=Q(assigned_work_tasks__in=technician_scope)),
+            )
+            .distinct()
+        )
     return render(request, 'workdocs/dashboard.html', context)
+
+
+@login_required(login_url='/panel/login/')
+def technician_detail(request, pk):
+    if not (is_admin(request.user) or is_manager(request.user)):
+        raise PermissionDenied
+    technician = get_object_or_404(_technicians(), pk=pk)
+    qs = _visible_tasks(request.user).filter(assigned_to=technician).select_related('created_by', 'assigned_to')
+    active_tasks = qs.filter(status__in=_active_statuses())
+    events = TaskEvent.objects.filter(task__in=qs).select_related('task', 'user')[:80]
+    return render(request, 'workdocs/technician_detail.html', {
+        'technician': technician,
+        'tasks': active_tasks,
+        'all_tasks': qs[:80],
+        'events': events,
+        'role': get_user_role(request.user),
+    })
 
 
 @login_required(login_url='/panel/login/')
@@ -221,6 +250,7 @@ def task_detail(request, pk):
 
     return render(request, 'workdocs/task_detail.html', {
         'task': task,
+        'map_coords': f'{task.latitude},{task.longitude}' if task.latitude and task.longitude else '',
         'role': role,
         'can_edit_task': _can_edit_task(request.user, task),
         'task_form': TaskForm(instance=task, role=role),

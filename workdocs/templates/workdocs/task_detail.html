@@ -29,13 +29,20 @@
         <div class="row g-2 compact-meta">
           <div class="col-md-6">Creada por: {{ task.created_by.get_full_name|default:task.created_by.username }}</div>
           <div class="col-md-6">Técnico: {{ task.assigned_to.get_full_name|default:task.assigned_to.username|default:'Sin asignar' }}</div>
+          {% if role != 'technician' %}
           <div class="col-md-6">Latitud: {{ task.latitude|default:'-' }}</div>
           <div class="col-md-6">Longitud: {{ task.longitude|default:'-' }}</div>
+          {% endif %}
           <div class="col-md-6">Creada: {{ task.created_at|date:'d/m/Y H:i' }}</div>
           <div class="col-md-6">Actualizada: {{ task.updated_at|date:'d/m/Y H:i' }}</div>
         </div>
-        {% if task.latitude and task.longitude %}
-        <a class="btn btn-sm btn-outline-primary mt-3" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ task.latitude }},{{ task.longitude }}">Abrir en Google Maps</a>
+        {% if map_coords %}
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination={{ map_coords }}">Cómo llegar</a>
+          <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ map_coords }}">Abrir en Google Maps</a>
+        </div>
+        {% elif task.address %}
+        <a class="btn btn-sm btn-outline-primary mt-3" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ task.address|urlencode }}">Abrir en Google Maps</a>
         {% endif %}
       </div>
     </div>
@@ -83,11 +90,15 @@
       </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-white fw-semibold">Historia</div>
-      <div class="list-group list-group-flush">
+    <div class="card">
+      <button class="card-header fw-semibold d-flex justify-content-between align-items-center border-0" type="button" data-bs-toggle="collapse" data-bs-target="#task-history" aria-expanded="false" aria-controls="task-history">
+        <span>Historia</span>
+        <span class="badge text-bg-secondary">{{ events|length }}</span>
+      </button>
+      <div class="collapse" id="task-history">
+      <div class="card-body timeline">
         {% for event in events %}
-        <div class="list-group-item">
+        <div class="timeline-item">
           <div class="d-flex justify-content-between gap-2">
             <div class="fw-semibold">{{ event.get_event_type_display }}</div>
             <div class="compact-meta">{{ event.created_at|date:'d/m/Y H:i' }}</div>
@@ -96,8 +107,9 @@
           {% if event.comment %}<div class="mt-1">{{ event.comment|linebreaksbr }}</div>{% endif %}
         </div>
         {% empty %}
-        <div class="list-group-item text-muted">Sin eventos.</div>
+        <div class="compact-meta">Sin eventos.</div>
         {% endfor %}
+      </div>
       </div>
     </div>
   </div>
@@ -146,8 +158,14 @@
       <div class="list-group list-group-flush">
         {% for report in voice_reports %}
         <div class="list-group-item">
+          <div class="mb-2">
+            <span class="audio-meta-badge">
+              Audio enviado por: {{ report.technician.get_full_name|default:report.technician.username }}
+              {% if report.technician.is_superuser %}(Admin){% elif report.technician.work_profile %}({{ report.technician.work_profile.get_role_display }}){% endif %}
+            </span>
+          </div>
           <audio controls class="w-100"><source src="{{ report.audio_file.url }}"></audio>
-          <div class="compact-meta">Transcripción: {{ report.get_transcript_status_display }}</div>
+          <div class="compact-meta">{{ report.created_at|date:'d/m/Y H:i' }} · Transcripción: {{ report.get_transcript_status_display }}</div>
         </div>
         {% endfor %}
       </div>

@@ -1,4 +1,9 @@
 {% extends 'partes/panel/base.html' %}
+{% load static %}
+{% block extra_head %}
+<link href="{% static 'workdocs/css/theme.css' %}?v=202606181030" rel="stylesheet">
+{% endblock %}
+{% block body_class %}login-theme{% endblock %}
 {% block content %}
 <div class="login-shell">
   {% include 'partes/includes/work_login_card.html' with next=next %}
