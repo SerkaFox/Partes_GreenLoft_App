@@ -143,6 +143,40 @@ def _comment_user_url(user):
     return reverse('workdocs_user_edit', args=[user.pk])
 
 
+def _task_user_url(user, viewer):
+    if not _can_manage_users(viewer):
+        return ''
+    return _comment_user_url(user)
+
+
+def _chat_items(task, viewer):
+    items = []
+    comments = task.events.filter(event_type=TaskEvent.EVENT_COMMENT).select_related('user', 'parent_event', 'parent_event__user')
+    for event in comments:
+        _ensure_profile(event.user)
+        if event.parent_event_id:
+            _ensure_profile(event.parent_event.user)
+        event.user_url = _task_user_url(event.user, viewer)
+        items.append({
+            'kind': 'comment',
+            'created_at': event.created_at,
+            'user': event.user,
+            'user_url': event.user_url,
+            'event': event,
+        })
+    reports = task.voice_reports.filter(report_type=TaskVoiceReport.TYPE_REPORT).select_related('technician')
+    for report in reports:
+        _ensure_profile(report.technician)
+        items.append({
+            'kind': 'voice',
+            'created_at': report.created_at,
+            'user': report.technician,
+            'user_url': _task_user_url(report.technician, viewer),
+            'report': report,
+        })
+    return sorted(items, key=lambda item: item['created_at'])
+
+
 def _events_for_display(task):
     events = []
     seen_status = set()
@@ -389,26 +423,28 @@ def task_detail(request, pk):
                 return JsonResponse({'ok': False, 'errors': voice_form.errors}, status=400)
             messages.error(request, f'No se pudo subir el audio: {voice_form.errors.as_text()}')
 
-    comments = list(task.events.filter(event_type=TaskEvent.EVENT_COMMENT).select_related('user', 'parent_event', 'parent_event__user')[:80])
-    for event in comments:
-        _ensure_profile(event.user)
-        event.user_url = _comment_user_url(event.user) if _can_manage_users(request.user) else ''
-        if event.parent_event_id:
-            _ensure_profile(event.parent_event.user)
+    created_by_url = _task_user_url(task.created_by, request.user)
+    technicians_info = [
+        {'user': technician, 'url': _task_user_url(technician, request.user)}
+        for technician in task.assigned_technicians
+    ]
+    chat_items = _chat_items(task, request.user)
     return render(request, 'workdocs/task_detail.html', {
         'task': task,
         'map_coords': f'{task.latitude},{task.longitude}' if task.latitude and task.longitude else '',
         'role': role,
         'can_edit_task': _can_edit_task(request.user, task),
+        'created_by_url': created_by_url,
+        'technicians_info': technicians_info,
+        'vehicle_url': reverse('workdocs_vehicle_edit', args=[task.vehicle_id]) if task.vehicle_id and _can_manage_users(request.user) else '',
         'task_form': TaskForm(instance=task, role=role),
         'file_form': TaskFileForm(),
         'comment_form': CommentForm(),
         'voice_form': VoiceReportForm(),
         'files': task.files.select_related('uploaded_by'),
         'events': _events_for_display(task),
-        'comments': comments,
+        'chat_items': chat_items,
         'can_manage_users': _can_manage_users(request.user),
-        'voice_reports': task.voice_reports.filter(report_type=TaskVoiceReport.TYPE_REPORT).select_related('technician'),
         'description_voice_reports': task.voice_reports.filter(report_type=TaskVoiceReport.TYPE_DESCRIPTION).select_related('technician'),
     })
 

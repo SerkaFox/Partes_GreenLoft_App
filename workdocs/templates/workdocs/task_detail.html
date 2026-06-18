@@ -31,9 +31,17 @@
           {% if task.parent_task %}
           <div class="col-md-6">Continuación de: <a href="{% url 'workdocs_task_detail' task.parent_task.pk %}">#{{ task.parent_task.pk }} {{ task.parent_task.title }}</a></div>
           {% endif %}
-          <div class="col-md-6">Creada por: {{ task.created_by.get_full_name|default:task.created_by.username }}</div>
-          <div class="col-md-6">Técnicos: {% for technician in task.assigned_technicians %}{{ technician.get_full_name|default:technician.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</div>
-          <div class="col-md-6">Vehículo: <span id="task-info-vehicle">{{ task.vehicle|default:'Sin vehículo' }}</span></div>
+          <div class="col-md-6">Creada por:
+            {% if created_by_url %}<a href="{{ created_by_url }}">{{ task.created_by.get_full_name|default:task.created_by.username }}</a>{% else %}{{ task.created_by.get_full_name|default:task.created_by.username }}{% endif %}
+          </div>
+          <div class="col-md-6">Técnicos:
+            {% for item in technicians_info %}
+              {% if item.url %}<a href="{{ item.url }}">{{ item.user.get_full_name|default:item.user.username }}</a>{% else %}{{ item.user.get_full_name|default:item.user.username }}{% endif %}{% if not forloop.last %}, {% endif %}
+            {% empty %}Sin asignar{% endfor %}
+          </div>
+          <div class="col-md-6">Vehículo:
+            {% if task.vehicle and vehicle_url %}<a id="task-info-vehicle" href="{{ vehicle_url }}">{{ task.vehicle }}</a>{% else %}<span id="task-info-vehicle">{{ task.vehicle|default:'Sin vehículo' }}</span>{% endif %}
+          </div>
           <div class="col-md-6">Creada: {{ task.created_at|date:'d/m/Y H:i' }}</div>
           <div class="col-md-6">Actualizada: {{ task.updated_at|date:'d/m/Y H:i' }}</div>
         </div>
@@ -61,45 +69,46 @@
 
     <div class="card border-0 shadow-sm mb-3" id="task-comments">
       <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
-        <span>Comentarios</span>
-        {% if comments %}<span class="badge text-bg-secondary">{{ comments|length }}</span>{% endif %}
+        <span>Chat</span>
+        {% if chat_items %}<span class="badge text-bg-secondary">{{ chat_items|length }}</span>{% endif %}
       </div>
-      <div class="card-body task-comments {% if comments|length > 3 %}task-comments-scroll{% endif %}">
-        {% for comment in comments %}
-        <div class="task-comment" id="comment-{{ comment.pk }}">
-          {% if comment.parent_event %}
-          <a class="comment-reply-context text-decoration-none" href="#comment-{{ comment.parent_event.pk }}">
-            Respuesta a {{ comment.parent_event.user.get_full_name|default:comment.parent_event.user.username }}: {{ comment.parent_event.comment|truncatechars:90 }}
+      <div class="card-body task-comments {% if chat_items|length > 3 %}task-comments-scroll{% endif %}">
+        {% for item in chat_items %}
+        <div class="task-comment" id="{% if item.kind == 'comment' %}comment-{{ item.event.pk }}{% else %}voice-{{ item.report.pk }}{% endif %}">
+          {% if item.kind == 'comment' and item.event.parent_event %}
+          <a class="comment-reply-context text-decoration-none" href="#comment-{{ item.event.parent_event.pk }}">
+            Respuesta a {{ item.event.parent_event.user.get_full_name|default:item.event.parent_event.user.username }}: {{ item.event.parent_event.comment|truncatechars:90 }}
           </a>
           {% endif %}
           <div class="d-flex justify-content-between gap-2 align-items-start">
             <div class="d-flex gap-2 align-items-center min-w-0">
-              {% if comment.user.work_profile.avatar %}
-              <img class="avatar avatar-sm" src="{{ comment.user.work_profile.avatar.url }}" alt="{{ comment.user.get_full_name|default:comment.user.username }}">
+              {% if item.user.work_profile.avatar %}
+              <img class="avatar avatar-sm" src="{{ item.user.work_profile.avatar.url }}" alt="{{ item.user.get_full_name|default:item.user.username }}">
               {% else %}
-              {% firstof comment.user.first_name comment.user.username as comment_avatar_seed %}
+              {% firstof item.user.first_name item.user.username as comment_avatar_seed %}
               <span class="avatar avatar-sm avatar-initials">{{ comment_avatar_seed|slice:":1"|upper }}</span>
               {% endif %}
               <div class="min-w-0">
-                {% if comment.user_url %}
-                <a class="fw-semibold text-white text-decoration-none" href="{{ comment.user_url }}">{{ comment.user.get_full_name|default:comment.user.username }}</a>
+                {% if item.user_url %}
+                <a class="fw-semibold text-white text-decoration-none" href="{{ item.user_url }}">{{ item.user.get_full_name|default:item.user.username }}</a>
                 {% else %}
-                <div class="fw-semibold">{{ comment.user.get_full_name|default:comment.user.username }}</div>
+                <div class="fw-semibold">{{ item.user.get_full_name|default:item.user.username }}</div>
                 {% endif %}
                 <div class="compact-meta">
-                  {% if comment.user.is_superuser %}Admin{% else %}{{ comment.user.work_profile.get_role_display|default:'Usuario' }}{% endif %}
+                  {% if item.user.is_superuser %}Admin{% else %}{{ item.user.work_profile.get_role_display|default:'Usuario' }}{% endif %}
                 </div>
               </div>
             </div>
-            <div class="compact-meta text-nowrap">{{ comment.created_at|date:'d/m/Y H:i' }}</div>
+            <div class="compact-meta text-nowrap">{{ item.created_at|date:'d/m/Y H:i' }}</div>
           </div>
-          <div class="mt-2">{{ comment.comment|linebreaksbr }}</div>
+          {% if item.kind == 'comment' %}
+          <div class="mt-2">{{ item.event.comment|linebreaksbr }}</div>
           <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-            <button class="btn btn-sm btn-outline-primary comment-reply-button" type="button" data-comment-id="{{ comment.pk }}" data-comment-author="{{ comment.user.get_full_name|default:comment.user.username }}" data-comment-text="{{ comment.comment|truncatechars:90 }}">Responder</button>
-            {% for emoji,count in comment.reactions.items %}
+            <button class="btn btn-sm btn-outline-primary comment-reply-button" type="button" data-comment-id="{{ item.event.pk }}" data-comment-author="{{ item.user.get_full_name|default:item.user.username }}" data-comment-text="{{ item.event.comment|truncatechars:90 }}">Responder</button>
+            {% for emoji,count in item.event.reactions.items %}
             <span class="comment-reaction-count">{{ emoji }} {{ count }}</span>
             {% endfor %}
-            <form class="d-inline-flex gap-1 comment-reactions" method="post" action="{% url 'workdocs_task_comment_reaction' task.pk comment.pk %}">
+            <form class="d-inline-flex gap-1 comment-reactions" method="post" action="{% url 'workdocs_task_comment_reaction' task.pk item.event.pk %}">
               {% csrf_token %}
               <button class="emoji-button" name="emoji" value="👍" type="submit">👍</button>
               <button class="emoji-button" name="emoji" value="✅" type="submit">✅</button>
@@ -107,9 +116,26 @@
               <button class="emoji-button" name="emoji" value="🙏" type="submit">🙏</button>
             </form>
           </div>
+          {% else %}
+          <div class="chat-voice-message mt-2">
+            <audio class="chat-audio" controls preload="metadata"><source src="{{ item.report.audio_file.url }}"></audio>
+            <div class="chat-transcript">
+              <div class="compact-meta">Transcripción: {{ item.report.get_transcript_status_display }}</div>
+              {% if item.report.transcript_status == 'done' %}
+              <div>{{ item.report.transcript_text|linebreaksbr|default:'Sin texto transcrito.' }}</div>
+              {% elif item.report.transcript_status == 'processing' %}
+              <div class="compact-meta">Transcribiendo...</div>
+              {% elif item.report.transcript_status == 'error' %}
+              <div class="text-danger small">{{ item.report.transcript_text|default:'No se pudo transcribir el audio.' }}</div>
+              {% else %}
+              <div class="compact-meta">Pendiente de transcripción.</div>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
         </div>
         {% empty %}
-        <div class="compact-meta">No hay comentarios todavía.</div>
+        <div class="compact-meta">No hay mensajes todavía.</div>
         {% endfor %}
       </div>
       <form method="post" id="comment-form">
@@ -125,6 +151,17 @@
           {{ comment_form.comment }}
         </div>
         <div class="card-footer bg-white"><button class="btn btn-outline-primary w-100">Añadir comentario</button></div>
+      </form>
+      <form method="post" enctype="multipart/form-data" id="voice-upload-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="voice">
+        <input type="file" name="audio_file" class="visually-hidden" accept="audio/*" required id="id_audio_file">
+        <div class="card-footer bg-white border-top d-flex flex-wrap gap-2 align-items-center">
+          <label class="btn btn-sm btn-outline-primary mb-0" for="id_audio_file">Audio</label>
+          <button class="btn btn-sm btn-outline-primary" type="button" id="record-audio">Grabar voz</button>
+          <button class="btn btn-sm btn-outline-primary d-none" type="button" id="stop-audio">Parar</button>
+          <span class="compact-meta" id="record-status">El audio se sube automáticamente.</span>
+        </div>
       </form>
     </div>
 
@@ -167,7 +204,7 @@
           {% elif event.event_type == 'comment' %}
           <a class="small timeline-jump" href="#task-comments">Ver comentarios</a>
           {% elif event.event_type == 'audio' %}
-          <a class="small timeline-jump" href="#task-voice">Ver audios</a>
+          <a class="small timeline-jump" href="#task-comments">Ver audio en chat</a>
           {% endif %}
         </div>
         {% empty %}
@@ -244,45 +281,6 @@
           <div class="col-12 compact-meta">No hay archivos.</div>
           {% endfor %}
         </div>
-      </div>
-    </div>
-
-    <div class="card border-0 shadow-sm mb-3" id="task-voice">
-      <div class="card-header bg-white fw-semibold">Informe de voz</div>
-      <form method="post" enctype="multipart/form-data" id="voice-upload-form">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="voice">
-        <div class="card-body">
-          <div class="mb-3">{{ voice_form.audio_file }}</div>
-          <div class="d-grid gap-2">
-            <button class="btn btn-outline-secondary" type="button" id="record-audio">Grabar audio</button>
-            <button class="btn btn-outline-secondary d-none" type="button" id="stop-audio">Parar grabación</button>
-          </div>
-          <div class="compact-meta mt-2" id="record-status">Se sube automáticamente al elegir o grabar audio.</div>
-        </div>
-      </form>
-      <div class="list-group list-group-flush">
-        {% for report in voice_reports %}
-        <div class="list-group-item">
-          <div class="mb-2">
-            <span class="audio-meta-badge">
-              Audio enviado por: {{ report.technician.get_full_name|default:report.technician.username }}
-              {% if report.technician.is_superuser %}(Admin){% elif report.technician.work_profile %}({{ report.technician.work_profile.get_role_display }}){% endif %}
-            </span>
-          </div>
-          <audio controls class="w-100"><source src="{{ report.audio_file.url }}"></audio>
-          <div class="compact-meta">{{ report.created_at|date:'d/m/Y H:i' }} · Transcripción: {{ report.get_transcript_status_display }}</div>
-          {% if report.transcript_status == 'done' %}
-          <div class="task-transcript mt-2">{{ report.transcript_text|linebreaksbr|default:'Sin texto transcrito.' }}</div>
-          {% elif report.transcript_status == 'processing' %}
-          <div class="compact-meta mt-2">Transcribiendo...</div>
-          {% elif report.transcript_status == 'error' %}
-          <div class="text-danger small mt-2">Error: {{ report.transcript_text|default:'No se pudo transcribir el audio.' }}</div>
-          {% else %}
-          <div class="compact-meta mt-2">Pendiente de transcripción.</div>
-          {% endif %}
-        </div>
-        {% endfor %}
       </div>
     </div>
   </div>

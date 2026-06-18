@@ -316,6 +316,25 @@ body.workdocs-theme .task-card:focus {
   border-color: rgba(138, 255, 190, .62);
   background: rgba(73, 201, 133, .16);
 }
+.chat-voice-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.chat-audio {
+  width: 180px;
+  max-width: 100%;
+  height: 34px;
+}
+.chat-transcript {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(190, 235, 213, .18);
+  border-radius: 8px;
+  background: rgba(7, 20, 17, .38);
+}
 .task-transcript {
   padding: 10px 12px;
   border: 1px solid rgba(190, 235, 213, .18);
