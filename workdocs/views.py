@@ -354,6 +354,9 @@ def profile(request):
 def user_list(request):
     if not _can_manage_users(request.user):
         raise PermissionDenied
+    state = request.GET.get('state') or 'all'
+    if state not in {'all', 'active', 'inactive'}:
+        state = 'all'
     form = UserCreateForm(request.POST or None, request.FILES or None)
     if request.method == 'POST' and form.is_valid():
         form.save()
@@ -361,10 +364,17 @@ def user_list(request):
         return redirect('workdocs_users')
     active_statuses = _active_statuses()
     users = User.objects.select_related('work_profile').order_by('username')
+    filtered_users = []
     for item in users:
         _ensure_profile(item)
+        is_active = item.is_active and item.work_profile.active
+        if state == 'active' and not is_active:
+            continue
+        if state == 'inactive' and is_active:
+            continue
         item.active_task_count = Task.objects.filter(Q(assigned_to=item) | Q(technicians=item), status__in=active_statuses).distinct().count()
-    return render(request, 'workdocs/users.html', {'users': users, 'form': form})
+        filtered_users.append(item)
+    return render(request, 'workdocs/users.html', {'users': filtered_users, 'form': form, 'state_filter': state})
 
 
 @login_required(login_url='/panel/login/')
@@ -424,15 +434,24 @@ def user_tasks(request, pk):
 def vehicles(request, pk=None):
     if not _can_manage_users(request.user):
         raise PermissionDenied
+    state = request.GET.get('state') or 'all'
+    if state not in {'all', 'active', 'inactive'}:
+        state = 'all'
     vehicle = get_object_or_404(Vehiculo, pk=pk) if pk else None
     form = VehiculoForm(request.POST or None, request.FILES or None, instance=vehicle)
     if request.method == 'POST' and form.is_valid():
         form.save()
         messages.success(request, 'Vehículo guardado correctamente.')
         return redirect('workdocs_vehicles')
+    vehicles_qs = Vehiculo.objects.all()
+    if state == 'active':
+        vehicles_qs = vehicles_qs.filter(activo=True)
+    elif state == 'inactive':
+        vehicles_qs = vehicles_qs.filter(activo=False)
     return render(request, 'workdocs/vehicles.html', {
         'form': form,
-        'vehicles': Vehiculo.objects.all(),
+        'vehicles': vehicles_qs,
         'editing': vehicle,
+        'state_filter': state,
         'role': get_user_role(request.user),
     })

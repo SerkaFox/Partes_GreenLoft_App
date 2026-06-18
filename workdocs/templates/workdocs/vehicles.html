@@ -35,9 +35,9 @@
   <div class="col-xl-8">
     <div class="d-flex flex-wrap justify-content-end gap-2 mb-3">
       <div class="btn-group work-filter-tabs" role="group" aria-label="Filtro de vehículos">
-        <button class="btn btn-sm btn-outline-primary active" type="button" data-vehicle-filter="all">Todos</button>
-        <button class="btn btn-sm btn-outline-primary" type="button" data-vehicle-filter="active">Activos</button>
-        <button class="btn btn-sm btn-outline-primary" type="button" data-vehicle-filter="inactive">Inactivos</button>
+        <a class="btn btn-sm btn-outline-primary {% if state_filter == 'all' %}active{% endif %}" href="{% url 'workdocs_vehicles' %}?state=all" data-vehicle-filter="all">Todos</a>
+        <a class="btn btn-sm btn-outline-primary {% if state_filter == 'active' %}active{% endif %}" href="{% url 'workdocs_vehicles' %}?state=active" data-vehicle-filter="active">Activos</a>
+        <a class="btn btn-sm btn-outline-primary {% if state_filter == 'inactive' %}active{% endif %}" href="{% url 'workdocs_vehicles' %}?state=inactive" data-vehicle-filter="inactive">Inactivos</a>
       </div>
       <input class="form-control vehicle-search" id="vehicle-search" type="search" placeholder="Buscar vehículo..." autocomplete="off">
     </div>
@@ -72,26 +72,28 @@
   </div>
 </div>
 <script>
-(() => {
+document.addEventListener('DOMContentLoaded', () => {
   const input = document.getElementById('vehicle-search');
   if (!input) return;
   const cards = [...document.querySelectorAll('.vehicle-card-col')];
   const tabs = [...document.querySelectorAll('[data-vehicle-filter]')];
-  let state = 'all';
+  let state = '{{ state_filter|default:"all" }}';
   const applyFilter = () => {
     const query = input.value.trim().toLowerCase();
     cards.forEach(card => {
-      const matchesText = !query || card.dataset.vehicleSearch.toLowerCase().includes(query);
+      const search = (card.dataset.vehicleSearch || '').toLowerCase();
+      const matchesText = !query || search.includes(query);
       const matchesState = state === 'all' || card.dataset.vehicleState === state;
       card.classList.toggle('d-none', !matchesText || !matchesState);
     });
   };
   input.addEventListener('input', applyFilter);
-  tabs.forEach(tab => tab.addEventListener('click', () => {
+  tabs.forEach(tab => tab.addEventListener('click', event => {
+    event.preventDefault();
     state = tab.dataset.vehicleFilter;
     tabs.forEach(item => item.classList.toggle('active', item === tab));
     applyFilter();
-  });
-})();
+  }));
+});
 </script>
 {% endblock %}

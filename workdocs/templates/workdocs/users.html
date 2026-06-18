@@ -4,9 +4,9 @@
   <h1 class="h3 mb-0">Usuarios</h1>
   <div class="d-flex flex-wrap gap-2 align-items-center">
     <div class="btn-group work-filter-tabs" role="group" aria-label="Filtro de usuarios">
-      <button class="btn btn-sm btn-outline-primary active" type="button" data-user-filter="all">Todos</button>
-      <button class="btn btn-sm btn-outline-primary" type="button" data-user-filter="active">Activos</button>
-      <button class="btn btn-sm btn-outline-primary" type="button" data-user-filter="inactive">Inactivos</button>
+      <a class="btn btn-sm btn-outline-primary {% if state_filter == 'all' %}active{% endif %}" href="{% url 'workdocs_users' %}?state=all" data-user-filter="all">Todos</a>
+      <a class="btn btn-sm btn-outline-primary {% if state_filter == 'active' %}active{% endif %}" href="{% url 'workdocs_users' %}?state=active" data-user-filter="active">Activos</a>
+      <a class="btn btn-sm btn-outline-primary {% if state_filter == 'inactive' %}active{% endif %}" href="{% url 'workdocs_users' %}?state=inactive" data-user-filter="inactive">Inactivos</a>
     </div>
     <div class="user-page-search">
     <input class="form-control" id="user-card-search" type="search" placeholder="Buscar usuario..." autocomplete="off">
@@ -82,26 +82,28 @@
   </div>
 </div>
 <script>
-(() => {
+document.addEventListener('DOMContentLoaded', () => {
   const input = document.getElementById('user-card-search');
   if (!input) return;
   const cards = [...document.querySelectorAll('.user-card-col')];
   const tabs = [...document.querySelectorAll('[data-user-filter]')];
-  let state = 'all';
+  let state = '{{ state_filter|default:"all" }}';
   const applyFilter = () => {
     const query = input.value.trim().toLowerCase();
     cards.forEach(card => {
-      const matchesText = !query || card.dataset.userSearch.toLowerCase().includes(query);
+      const search = (card.dataset.userSearch || '').toLowerCase();
+      const matchesText = !query || search.includes(query);
       const matchesState = state === 'all' || card.dataset.userState === state;
       card.classList.toggle('d-none', !matchesText || !matchesState);
     });
   };
   input.addEventListener('input', applyFilter);
-  tabs.forEach(tab => tab.addEventListener('click', () => {
+  tabs.forEach(tab => tab.addEventListener('click', event => {
+    event.preventDefault();
     state = tab.dataset.userFilter;
     tabs.forEach(item => item.classList.toggle('active', item === tab));
     applyFilter();
-  });
-})();
+  }));
+});
 </script>
 {% endblock %}
