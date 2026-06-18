@@ -24,7 +24,7 @@
   </div>
   <div class="list-group list-group-flush">
     {% for task in tasks %}
-    <div class="list-group-item task-card task-active {% if task.status == 'NUEVA' %}task-new-pulse{% endif %}">
+    <div class="list-group-item task-card task-active clickable-task-card {% if task.status == 'NUEVA' %}task-new-pulse{% endif %}" data-href="{% url 'workdocs_task_detail' task.pk %}" role="link" tabindex="0">
       <div class="d-flex justify-content-between gap-2">
         <div>
           <a class="text-decoration-none task-title-link" href="{% url 'workdocs_task_detail' task.pk %}">
@@ -35,6 +35,7 @@
         </div>
         <div class="text-end">
           {% include 'workdocs/partials_status.html' with task=task %}
+          {% if task.comment_count %}<div><span class="badge text-bg-secondary mt-2">{{ task.comment_count }} mensajes</span></div>{% endif %}
           {% if task.status == 'NUEVA' %}<div><span class="badge text-bg-warning mt-2">Nueva</span></div>{% endif %}
         </div>
       </div>
@@ -78,4 +79,24 @@
   {% endfor %}
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.clickable-task-card[data-href]').forEach(card => {
+    const openCard = () => { window.location.href = card.dataset.href; };
+    card.addEventListener('click', event => {
+      if (event.defaultPrevented || event.target.closest('a, button, input, select, textarea, form, label')) return;
+      openCard();
+    });
+    card.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      if (event.target.closest('a, button, input, select, textarea, form, label')) return;
+      event.preventDefault();
+      openCard();
+    });
+  });
+});
+</script>
 {% endblock %}

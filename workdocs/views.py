@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db.models import Max, Q
+from django.db.models import Count, Max, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -92,6 +92,12 @@ def _active_statuses():
     ]
 
 
+def _with_comment_count(qs):
+    return qs.annotate(
+        comment_count=Count('events', filter=Q(events__event_type=TaskEvent.EVENT_COMMENT), distinct=True)
+    )
+
+
 def _can_edit_task(user, task):
     role = get_user_role(user)
     return role == UserProfile.ROLE_ADMIN or (role == UserProfile.ROLE_MANAGER and task.created_by_id == user.id)
@@ -153,7 +159,7 @@ def dashboard(request):
     role = get_user_role(request.user)
     qs = _visible_tasks(request.user)
     active_statuses = _active_statuses()
-    active_tasks = qs.filter(status__in=active_statuses)
+    active_tasks = _with_comment_count(qs.filter(status__in=active_statuses))
     context = {
         'role': role,
         'tasks': active_tasks[:40],
@@ -216,6 +222,7 @@ def task_list(request):
         qs = qs.filter(Q(assigned_to_id=technician) | Q(technicians__id=technician)).distinct()
     if q:
         qs = qs.filter(Q(title__icontains=q) | Q(address__icontains=q) | Q(description__icontains=q))
+    qs = _with_comment_count(qs)
     return render(request, 'workdocs/task_list.html', {
         'tasks': qs[:300],
         'statuses': Task.STATUS_CHOICES,
@@ -313,6 +320,9 @@ def task_detail(request, pk):
                 return JsonResponse({'ok': False, 'errors': voice_form.errors}, status=400)
             messages.error(request, f'No se pudo subir el audio: {voice_form.errors.as_text()}')
 
+    comments = list(task.events.filter(event_type=TaskEvent.EVENT_COMMENT).select_related('user')[:80])
+    for event in comments:
+        _ensure_profile(event.user)
     return render(request, 'workdocs/task_detail.html', {
         'task': task,
         'map_coords': f'{task.latitude},{task.longitude}' if task.latitude and task.longitude else '',
@@ -324,6 +334,7 @@ def task_detail(request, pk):
         'voice_form': VoiceReportForm(),
         'files': task.files.select_related('uploaded_by'),
         'events': task.events.select_related('user')[:80],
+        'comments': comments,
         'voice_reports': task.voice_reports.select_related('technician'),
     })
 
@@ -338,6 +349,7 @@ def technician_status(request, pk, action):
     labels = {
         'arrived_work': 'He llegado al trabajo',
         'arrived_object': 'He llegado al objeto',
+        'left_object': 'Salí del objeto',
         'finished': 'Trabajo finalizado correctamente.',
     }
     if action == 'arrived_work':
@@ -346,8 +358,11 @@ def technician_status(request, pk, action):
     elif action == 'arrived_object':
         task.status = Task.STATUS_EN_OBJETO
         task.arrived_at = task.arrived_at or now
-    elif action == 'finished':
+    elif action == 'left_object':
         task.status = Task.STATUS_PENDIENTE_REVISION
+        task.finished_at = task.finished_at or now
+    elif action == 'finished':
+        task.status = Task.STATUS_FINALIZADA
         task.finished_at = task.finished_at or now
     else:
         raise PermissionDenied

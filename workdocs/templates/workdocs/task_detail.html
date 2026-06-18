@@ -16,6 +16,7 @@
 <div class="d-flex flex-wrap gap-2 mobile-actions mb-3">
   <form method="post" action="{% url 'workdocs_technician_status' task.pk 'arrived_work' %}">{% csrf_token %}<button class="btn btn-outline-primary">He llegado al trabajo</button></form>
   <form method="post" action="{% url 'workdocs_technician_status' task.pk 'arrived_object' %}">{% csrf_token %}<button class="btn btn-outline-primary">He llegado al objeto</button></form>
+  <form method="post" action="{% url 'workdocs_technician_status' task.pk 'left_object' %}">{% csrf_token %}<button class="btn btn-outline-primary">Salí del objeto</button></form>
   <form method="post" action="{% url 'workdocs_technician_status' task.pk 'finished' %}">{% csrf_token %}<button class="btn btn-success">Trabajo finalizado</button></form>
 </div>
 {% endif %}
@@ -74,15 +75,39 @@
               <audio controls class="w-100"><source src="{{ item.file.url }}"></audio>
               {% elif item.is_video %}
               <video controls class="w-100 task-thumb"><source src="{{ item.file.url }}"></video>
+              {% elif item.file_type == 'pdf' %}
+              <div class="p-3 text-center bg-light rounded">PDF</div>
               {% else %}
               <div class="p-3 text-center bg-light rounded">Documento</div>
               {% endif %}
               <div class="small fw-semibold mt-2 text-break">{{ item.original_name|default:item.file.name }}</div>
               <div class="compact-meta">{{ item.get_file_type_display }} · {{ item.uploaded_by.get_full_name|default:item.uploaded_by.username }}</div>
               {% if item.comment %}<div class="small mt-1">{{ item.comment }}</div>{% endif %}
-              <a class="btn btn-sm btn-outline-primary mt-2" href="{{ item.file.url }}" download>Descargar</a>
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                {% if item.file_type == 'pdf' %}
+                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#pdf-preview-{{ item.pk }}">Vista previa</button>
+                {% elif not item.is_image and not item.is_audio and not item.is_video %}
+                <span class="compact-meta align-self-center">Vista previa no disponible</span>
+                {% endif %}
+                <a class="btn btn-sm btn-outline-primary" href="{{ item.file.url }}" download>Descargar</a>
+              </div>
             </div>
           </div>
+          {% if item.file_type == 'pdf' %}
+          <div class="modal fade" id="pdf-preview-{{ item.pk }}" tabindex="-1" aria-labelledby="pdf-preview-title-{{ item.pk }}" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h2 class="modal-title fs-6" id="pdf-preview-title-{{ item.pk }}">{{ item.original_name|default:item.file.name }}</h2>
+                  <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-0">
+                  <iframe class="pdf-preview-frame" src="{{ item.file.url }}" title="{{ item.original_name|default:item.file.name }}"></iframe>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
           {% empty %}
           <div class="col-12 text-muted">No hay archivos.</div>
           {% endfor %}
@@ -131,11 +156,30 @@
     </div>
 
     <div class="card border-0 shadow-sm mb-3">
-      <div class="card-header bg-white fw-semibold">Añadir comentario</div>
+      <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+        <span>Comentarios</span>
+        {% if comments %}<span class="badge text-bg-secondary">{{ comments|length }}</span>{% endif %}
+      </div>
+      <div class="card-body task-comments">
+        {% for comment in comments %}
+        <div class="task-comment">
+          <div class="d-flex justify-content-between gap-2">
+            <div class="fw-semibold">{{ comment.user.get_full_name|default:comment.user.username }}</div>
+            <div class="compact-meta">{{ comment.created_at|date:'d/m/Y H:i' }}</div>
+          </div>
+          <div class="compact-meta">
+            {% if comment.user.is_superuser %}Admin{% else %}{{ comment.user.work_profile.get_role_display|default:'Usuario' }}{% endif %}
+          </div>
+          <div class="mt-2">{{ comment.comment|linebreaksbr }}</div>
+        </div>
+        {% empty %}
+        <div class="compact-meta">No hay comentarios todavía.</div>
+        {% endfor %}
+      </div>
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="comment">
-        <div class="card-body">{{ comment_form.comment }}</div>
+        <div class="card-body border-top">{{ comment_form.comment }}</div>
         <div class="card-footer bg-white"><button class="btn btn-outline-primary w-100">Añadir comentario</button></div>
       </form>
     </div>

@@ -226,6 +226,31 @@ body.workdocs-theme .task-card:focus {
   box-shadow: 0 18px 40px rgba(0, 0, 0, .36);
   transform: translateY(-1px);
 }
+.clickable-task-card {
+  cursor: pointer;
+}
+.task-title-link,
+.task-title-link:hover,
+.task-title-link:focus {
+  color: inherit;
+}
+.task-comments {
+  display: grid;
+  gap: 12px;
+}
+.task-comment {
+  padding: 12px;
+  border: 1px solid rgba(190, 235, 213, .22);
+  border-radius: 8px;
+  background: rgba(7, 20, 17, .5);
+}
+.pdf-preview-frame {
+  display: block;
+  width: 100%;
+  height: min(78vh, 820px);
+  border: 0;
+  background: #fff;
+}
 .vehicles-grid {
   align-items: stretch;
 }
