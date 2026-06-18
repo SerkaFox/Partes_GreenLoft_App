@@ -2,8 +2,15 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
   <h1 class="h3 mb-0">Usuarios</h1>
-  <div class="user-page-search">
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <div class="btn-group work-filter-tabs" role="group" aria-label="Filtro de usuarios">
+      <button class="btn btn-sm btn-outline-primary active" type="button" data-user-filter="all">Todos</button>
+      <button class="btn btn-sm btn-outline-primary" type="button" data-user-filter="active">Activos</button>
+      <button class="btn btn-sm btn-outline-primary" type="button" data-user-filter="inactive">Inactivos</button>
+    </div>
+    <div class="user-page-search">
     <input class="form-control" id="user-card-search" type="search" placeholder="Buscar usuario..." autocomplete="off">
+    </div>
   </div>
 </div>
 <div class="row g-3">
@@ -28,8 +35,8 @@
       <div class="fw-semibold mb-3">Todos los usuarios</div>
       <div class="row g-4">
           {% for item in users %}
-          <div class="col-md-6 col-xxl-4 user-card-col" data-user-search="{{ item.get_full_name|default:item.username }} {{ item.username }} {{ item.email }}">
-            <div class="user-card h-100 {% if not item.is_active or not item.work_profile.active %}user-card-inactive{% endif %}">
+          <div class="col-md-6 col-xxl-4 user-card-col" data-user-state="{% if item.is_active and item.work_profile.active %}active{% else %}inactive{% endif %}" data-user-search="{{ item.get_full_name|default:item.username }} {{ item.username }} {{ item.email }}">
+            <div class="user-card h-100 border rounded shadow-sm {% if not item.is_active or not item.work_profile.active %}user-card-inactive{% endif %}">
               <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
                 <div class="d-flex gap-3 align-items-start">
                   {% if item.work_profile.avatar %}
@@ -79,11 +86,21 @@
   const input = document.getElementById('user-card-search');
   if (!input) return;
   const cards = [...document.querySelectorAll('.user-card-col')];
-  input.addEventListener('input', () => {
+  const tabs = [...document.querySelectorAll('[data-user-filter]')];
+  let state = 'all';
+  const applyFilter = () => {
     const query = input.value.trim().toLowerCase();
     cards.forEach(card => {
-      card.classList.toggle('d-none', query && !card.dataset.userSearch.toLowerCase().includes(query));
+      const matchesText = !query || card.dataset.userSearch.toLowerCase().includes(query);
+      const matchesState = state === 'all' || card.dataset.userState === state;
+      card.classList.toggle('d-none', !matchesText || !matchesState);
     });
+  };
+  input.addEventListener('input', applyFilter);
+  tabs.forEach(tab => tab.addEventListener('click', () => {
+    state = tab.dataset.userFilter;
+    tabs.forEach(item => item.classList.toggle('active', item === tab));
+    applyFilter();
   });
 })();
 </script>

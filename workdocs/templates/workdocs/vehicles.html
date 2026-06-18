@@ -33,13 +33,19 @@
     </form>
   </div>
   <div class="col-xl-8">
-    <div class="d-flex justify-content-end mb-3">
+    <div class="d-flex flex-wrap justify-content-end gap-2 mb-3">
+      <div class="btn-group work-filter-tabs" role="group" aria-label="Filtro de vehículos">
+        <button class="btn btn-sm btn-outline-primary active" type="button" data-vehicle-filter="all">Todos</button>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-vehicle-filter="active">Activos</button>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-vehicle-filter="inactive">Inactivos</button>
+      </div>
       <input class="form-control vehicle-search" id="vehicle-search" type="search" placeholder="Buscar vehículo..." autocomplete="off">
     </div>
-    <div class="vehicles-grid">
+    <div class="row g-4 vehicles-grid">
       {% for vehicle in vehicles %}
-      <div class="vehicle-card {% if not vehicle.activo %}vehicle-card-inactive{% endif %}" data-vehicle-search="{{ vehicle.matricula }} {{ vehicle.descripcion }}">
-        <div class="d-flex gap-3 align-items-start">
+      <div class="col-md-6 col-xxl-4 vehicle-card-col" data-vehicle-state="{% if vehicle.activo %}active{% else %}inactive{% endif %}" data-vehicle-search="{{ vehicle.matricula }} {{ vehicle.descripcion }}">
+      <div class="vehicle-card h-100 border rounded shadow-sm {% if not vehicle.activo %}vehicle-card-inactive{% endif %}">
+        <div class="d-flex flex-column gap-3">
           {% if vehicle.image %}
           <img class="vehicle-thumb" src="{{ vehicle.image.url }}" alt="{{ vehicle.matricula }}">
           {% else %}
@@ -58,6 +64,7 @@
           </div>
         </div>
       </div>
+      </div>
       {% empty %}
       <div class="compact-meta">No hay vehículos.</div>
       {% endfor %}
@@ -68,12 +75,22 @@
 (() => {
   const input = document.getElementById('vehicle-search');
   if (!input) return;
-  const cards = [...document.querySelectorAll('[data-vehicle-search]')];
-  input.addEventListener('input', () => {
+  const cards = [...document.querySelectorAll('.vehicle-card-col')];
+  const tabs = [...document.querySelectorAll('[data-vehicle-filter]')];
+  let state = 'all';
+  const applyFilter = () => {
     const query = input.value.trim().toLowerCase();
     cards.forEach(card => {
-      card.classList.toggle('d-none', query && !card.dataset.vehicleSearch.toLowerCase().includes(query));
+      const matchesText = !query || card.dataset.vehicleSearch.toLowerCase().includes(query);
+      const matchesState = state === 'all' || card.dataset.vehicleState === state;
+      card.classList.toggle('d-none', !matchesText || !matchesState);
     });
+  };
+  input.addEventListener('input', applyFilter);
+  tabs.forEach(tab => tab.addEventListener('click', () => {
+    state = tab.dataset.vehicleFilter;
+    tabs.forEach(item => item.classList.toggle('active', item === tab));
+    applyFilter();
   });
 })();
 </script>

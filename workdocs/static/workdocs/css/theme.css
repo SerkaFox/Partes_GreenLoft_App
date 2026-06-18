@@ -109,7 +109,21 @@ a.card:focus {
   color: var(--wl-text) !important;
 }
 
-.task-title {
+body.workdocs-theme .task-card,
+body.workdocs-theme .task-card:link,
+body.workdocs-theme .task-card:visited,
+body.workdocs-theme .task-card:hover,
+body.workdocs-theme .task-card:focus,
+body.workdocs-theme .task-card:active,
+body.workdocs-theme .task-card .task-title,
+body.workdocs-theme .task-card:hover .task-title,
+body.workdocs-theme .task-card:focus .task-title,
+body.workdocs-theme .task-card:active .task-title,
+body.workdocs-theme .task-card a,
+body.workdocs-theme .task-card:hover a,
+body.workdocs-theme .task-card:focus a,
+body.workdocs-theme .task-title,
+body.workdocs-theme .task-title.fw-semibold {
   color: #fff !important;
 }
 
@@ -160,10 +174,10 @@ a.card:focus {
 .user-card {
   height: 100%;
   padding: 18px;
-  border: 1px solid rgba(190, 235, 213, .42);
-  border-radius: 8px;
+  border: 1px solid rgba(190, 235, 213, .52) !important;
+  border-radius: 8px !important;
   background: rgba(6, 18, 15, .9);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, .34);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .38) !important;
   transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease, transform .16s ease;
 }
 .user-card:hover {
@@ -191,19 +205,17 @@ a.card:focus {
   transform: translateY(-1px);
 }
 .vehicles-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 16px;
+  align-items: stretch;
 }
 .vehicle-card {
   display: block;
   min-height: 150px;
   padding: 18px;
-  border: 1px solid rgba(190, 235, 213, .4);
-  border-radius: 8px;
+  border: 1px solid rgba(190, 235, 213, .52) !important;
+  border-radius: 8px !important;
   background: rgba(6, 18, 15, .88);
   color: var(--wl-text);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, .32);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .38) !important;
   transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease, transform .16s ease;
 }
 .vehicle-card:hover,
@@ -225,8 +237,8 @@ a.card:focus {
   width: min(100%, 360px);
 }
 .vehicle-thumb {
-  width: 82px;
-  height: 82px;
+  width: 100%;
+  height: 128px;
   border-radius: 8px;
   border: 1px solid rgba(190, 235, 213, .36);
   object-fit: cover;
@@ -236,6 +248,11 @@ a.card:focus {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+}
+.work-filter-tabs .btn.active {
+  background: rgba(73, 201, 133, .24);
+  border-color: rgba(138, 255, 190, .62);
+  color: #fff;
 }
 .vehicle-thumb-initial {
   font-size: 2rem;
