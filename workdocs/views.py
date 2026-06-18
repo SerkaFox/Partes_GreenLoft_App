@@ -42,11 +42,26 @@ def _technicians():
 
 
 def _user_payload(user):
+    profile = getattr(user, 'work_profile', None)
+    vehicle = profile.vehicle if profile and profile.vehicle_id else None
     return {
         'id': user.id,
         'username': user.get_username(),
         'full_name': _display_user(user),
         'role': get_user_role(user),
+        'vehicle': _vehicle_payload(vehicle) if vehicle else None,
+    }
+
+
+def _vehicle_payload(vehicle, request=None):
+    image_url = ''
+    if vehicle.image:
+        image_url = request.build_absolute_uri(vehicle.image.url) if request else vehicle.image.url
+    return {
+        'id': vehicle.id,
+        'matricula': vehicle.matricula,
+        'descripcion': vehicle.descripcion,
+        'image_url': image_url,
     }
 
 
@@ -68,6 +83,16 @@ def user_search(request):
         | Q(email__icontains=q)
     ).order_by('first_name', 'last_name', 'username')[:12]
     return JsonResponse([_user_payload(user) for user in qs], safe=False)
+
+
+@require_GET
+def vehicle_search(request):
+    q = (request.GET.get('q') or '').strip()
+    qs = Vehiculo.objects.filter(activo=True)
+    if q:
+        qs = qs.filter(Q(matricula__icontains=q) | Q(descripcion__icontains=q))
+    qs = qs.order_by('orden', 'matricula')[:12]
+    return JsonResponse([_vehicle_payload(vehicle, request) for vehicle in qs], safe=False)
 
 
 def _visible_tasks(user):
@@ -118,9 +143,17 @@ def _selected_technicians(form):
 def _sync_task_technicians(task, technicians):
     task.technicians.set(technicians)
     primary = technicians[0] if technicians else None
+    update_fields = []
     if task.assigned_to_id != (primary.id if primary else None):
         task.assigned_to = primary
-        task.save(update_fields=['assigned_to', 'updated_at'])
+        update_fields.append('assigned_to')
+    if primary and not task.vehicle_id:
+        profile = getattr(primary, 'work_profile', None)
+        if profile and profile.vehicle_id:
+            task.vehicle = profile.vehicle
+            update_fields.append('vehicle')
+    if update_fields:
+        task.save(update_fields=[*update_fields, 'updated_at'])
 
 
 def _save_uploaded_files(task, user, files, comment=''):

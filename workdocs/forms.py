@@ -6,6 +6,8 @@ from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from PIL import Image, ImageOps
 
+from partes.models import Vehiculo
+
 from .models import Task, TaskEvent, TaskFile, TaskVoiceReport, UserProfile
 
 User = get_user_model()
@@ -54,7 +56,7 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
 
     class Meta:
         model = Task
-        fields = ['title', 'description', 'address', 'latitude', 'longitude', 'assigned_to', 'technicians', 'status']
+        fields = ['title', 'description', 'address', 'latitude', 'longitude', 'assigned_to', 'technicians', 'vehicle', 'status']
         labels = {
             'title': 'Título',
             'description': 'Descripción',
@@ -62,6 +64,7 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             'latitude': 'Latitud',
             'longitude': 'Longitud',
             'assigned_to': 'Técnico asignado',
+            'vehicle': 'Vehículo',
             'status': 'Estado',
         }
         widgets = {
@@ -69,6 +72,7 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             'latitude': forms.HiddenInput(),
             'longitude': forms.HiddenInput(),
             'assigned_to': forms.HiddenInput(),
+            'vehicle': forms.Select(attrs={'class': 'vehicle-select d-none'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -78,9 +82,12 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
         technicians = User.objects.filter(work_profile__role=UserProfile.ROLE_TECHNICIAN, is_active=True).order_by('first_name', 'username')
         self.fields['assigned_to'].queryset = technicians
         self.fields['technicians'].queryset = technicians
+        self.fields['vehicle'].queryset = Vehiculo.objects.filter(activo=True).order_by('orden', 'matricula')
         self.fields['assigned_to'].required = False
+        self.fields['vehicle'].required = False
         self.fields['technicians'].label_from_instance = lambda user: user.get_full_name() or user.get_username()
         self.fields['assigned_to'].label_from_instance = lambda user: user.get_full_name() or user.get_username()
+        self.fields['vehicle'].label_from_instance = lambda vehicle: f'{vehicle.matricula} {vehicle.descripcion}'.strip()
         if self.instance and self.instance.pk and not self.is_bound:
             selected = list(self.instance.technicians.all())
             if self.instance.assigned_to and self.instance.assigned_to not in selected:

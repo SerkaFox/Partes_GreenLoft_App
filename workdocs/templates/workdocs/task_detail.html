@@ -30,6 +30,7 @@
         <div class="row g-2 compact-meta">
           <div class="col-md-6">Creada por: {{ task.created_by.get_full_name|default:task.created_by.username }}</div>
           <div class="col-md-6">Técnicos: {% for technician in task.assigned_technicians %}{{ technician.get_full_name|default:technician.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</div>
+          <div class="col-md-6">Vehículo: {{ task.vehicle|default:'Sin vehículo' }}</div>
           {% if role != 'technician' %}
           <div class="col-md-6">Latitud: {{ task.latitude|default:'-' }}</div>
           <div class="col-md-6">Longitud: {{ task.longitude|default:'-' }}</div>
@@ -41,9 +42,15 @@
         <div class="d-flex flex-wrap gap-2 mt-3">
           <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination={{ map_coords }}">Cómo llegar</a>
           <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ map_coords }}">Abrir en Google Maps</a>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'parte_form' %}?task={{ task.pk }}">Crear parte</a>
         </div>
         {% elif task.address %}
-        <a class="btn btn-sm btn-outline-primary mt-3" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ task.address|urlencode }}">Abrir en Google Maps</a>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ task.address|urlencode }}">Abrir en Google Maps</a>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'parte_form' %}?task={{ task.pk }}">Crear parte</a>
+        </div>
+        {% else %}
+        <a class="btn btn-sm btn-outline-primary mt-3" href="{% url 'parte_form' %}?task={{ task.pk }}">Crear parte</a>
         {% endif %}
       </div>
     </div>
@@ -94,12 +101,12 @@
             </div>
           </div>
           {% if item.file_type == 'pdf' %}
-          <div class="modal fade" id="pdf-preview-{{ item.pk }}" tabindex="-1" aria-labelledby="pdf-preview-title-{{ item.pk }}" aria-hidden="true">
-            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+          <div class="modal fade pdf-preview-modal" id="pdf-preview-{{ item.pk }}" tabindex="-1" aria-labelledby="pdf-preview-title-{{ item.pk }}" aria-hidden="true">
+            <div class="modal-dialog modal-fullscreen">
               <div class="modal-content">
                 <div class="modal-header">
                   <h2 class="modal-title fs-6" id="pdf-preview-title-{{ item.pk }}">{{ item.original_name|default:item.file.name }}</h2>
-                  <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                  <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body p-0">
                   <iframe class="pdf-preview-frame" src="{{ item.file.url }}" title="{{ item.original_name|default:item.file.name }}"></iframe>

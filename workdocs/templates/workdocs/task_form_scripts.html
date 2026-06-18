@@ -51,6 +51,10 @@ function initTaskEditors() {
     const addressInput = editor.querySelector('[name="address"]');
     const assignedInput = editor.querySelector('[name="assigned_to"]');
     const techniciansSelect = editor.querySelector('.technicians-select');
+    const vehicleSelect = editor.querySelector('.vehicle-select');
+    const selectedVehicle = editor.querySelector('.selected-vehicle');
+    const vehicleSearch = editor.querySelector('.vehicle-search-input');
+    const vehicleResults = editor.querySelector('.vehicle-results');
     const selectedTechnicians = editor.querySelector('.selected-technicians');
     const techSearch = editor.querySelector('.technician-search');
     const techResults = editor.querySelector('.technician-results');
@@ -109,6 +113,40 @@ function initTaskEditors() {
     });
     setTimeout(() => map.invalidateSize(), 250);
 
+    const renderVehicle = (vehicle = null) => {
+      if (!selectedVehicle || !vehicleSelect) return;
+      const selectedOption = vehicle || vehicleSelect.selectedOptions[0];
+      selectedVehicle.innerHTML = '';
+      if (!selectedOption || !selectedOption.value) {
+        selectedVehicle.innerHTML = '<span class="compact-meta">Sin vehículo seleccionado.</span>';
+        return;
+      }
+      const label = selectedOption.label || selectedOption.textContent || selectedOption.matricula || '';
+      const imageUrl = selectedOption.image_url || selectedOption.dataset?.imageUrl || '';
+      const item = document.createElement('div');
+      item.className = 'vehicle-chip';
+      item.innerHTML = `${imageUrl ? `<img src="${imageUrl}" alt="">` : `<span>${label.slice(0, 1).toUpperCase()}</span>`}<strong>${label}</strong><button type="button" aria-label="Quitar vehículo">&times;</button>`;
+      item.querySelector('button').addEventListener('click', () => {
+        vehicleSelect.value = '';
+        vehicleSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        renderVehicle();
+      });
+      selectedVehicle.appendChild(item);
+    };
+    const selectVehicle = vehicle => {
+      if (!vehicleSelect || !vehicle) return;
+      let option = vehicleSelect.querySelector(`option[value="${vehicle.id}"]`);
+      if (!option) {
+        option = new Option(`${vehicle.matricula}${vehicle.descripcion ? ` ${vehicle.descripcion}` : ''}`, vehicle.id);
+        vehicleSelect.add(option);
+      }
+      option.dataset.imageUrl = vehicle.image_url || '';
+      vehicleSelect.value = String(vehicle.id);
+      vehicleSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      renderVehicle(vehicle);
+    };
+    renderVehicle();
+
     const selectedTechs = new Map(
       [...techniciansSelect.selectedOptions].map(option => [option.value, option.textContent])
     );
@@ -162,6 +200,7 @@ function initTaskEditors() {
             selectedTechs.set(String(user.id), user.full_name);
             techSearch.value = '';
             syncTechnicians();
+            if (!vehicleSelect.value && user.vehicle) selectVehicle(user.vehicle);
             techResults.classList.add('d-none');
           });
           techResults.appendChild(button);
@@ -174,6 +213,38 @@ function initTaskEditors() {
       if (event.key !== 'Enter') return;
       event.preventDefault();
       if (visibleTechButtons.length) visibleTechButtons[0].click();
+    });
+
+    let vehicleTimer = null;
+    vehicleSearch?.addEventListener('input', () => {
+      clearTimeout(vehicleTimer);
+      vehicleTimer = setTimeout(async () => {
+        const q = vehicleSearch.value.trim();
+        const response = await fetch(`/trabajo/api/vehicles/search/?q=${encodeURIComponent(q)}`);
+        const vehicles = await response.json();
+        vehicleResults.innerHTML = vehicles.length ? '' : '<div class="p-3 text-muted">Sin resultados</div>';
+        vehicles.forEach(vehicle => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'user-result vehicle-result';
+          button.innerHTML = `${vehicle.image_url ? `<img src="${vehicle.image_url}" alt="">` : `<span>${vehicle.matricula.slice(0, 1).toUpperCase()}</span>`}<div><strong>${vehicle.matricula}</strong><div class="small text-muted">${vehicle.descripcion || ''}</div></div>`;
+          button.addEventListener('click', () => {
+            selectVehicle(vehicle);
+            vehicleSearch.value = '';
+            vehicleResults.classList.add('d-none');
+          });
+          vehicleResults.appendChild(button);
+        });
+        vehicleResults.classList.remove('d-none');
+      }, 180);
+    });
+    vehicleSearch?.addEventListener('focus', () => {
+      if (!vehicleSearch.value.trim()) vehicleSearch.dispatchEvent(new Event('input'));
+    });
+    vehicleSearch?.addEventListener('keydown', event => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      vehicleResults.querySelector('button')?.click();
     });
 
     const recordBtn = editor.querySelector('.record-description');

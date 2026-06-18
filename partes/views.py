@@ -54,7 +54,7 @@ def _panel_role(user):
 def technician_redirect_if_panel(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
-        if request.user.is_authenticated and _panel_role(request.user) == 'technician':
+        if request.user.is_authenticated and _panel_role(request.user) == 'technician' and not request.GET.get('task'):
             return redirect('workdocs_dashboard')
         return view_func(request, *args, **kwargs)
     return wrapper
@@ -79,6 +79,33 @@ def index(request):
 @technician_redirect_if_panel
 def parte_form(request):
     return render(request, 'partes/index.html')
+
+
+def _task_prefill(request):
+    task_id = request.GET.get('task')
+    if not task_id:
+        return {}
+    try:
+        Task = apps.get_model('workdocs', 'Task')
+        task = Task.objects.prefetch_related('technicians').select_related('assigned_to', 'vehicle').get(pk=task_id)
+    except Exception:  # noqa: BLE001 - partes must keep loading even if workdocs is unavailable.
+        return {}
+
+    technicians = task.assigned_technicians
+    technician_name = (technicians[0].get_full_name() or technicians[0].username) if technicians else ''
+    companion_name = (technicians[1].get_full_name() or technicians[1].username) if len(technicians) > 1 else ''
+    if companion_name and not Tecnico.objects.filter(nombre=companion_name, activo=True).exists():
+        companion_name = 'Sin acompañante'
+
+    return {
+        'tecnico': technician_name,
+        'companero': companion_name or 'Sin acompañante',
+        'matricula': task.vehicle.matricula if task.vehicle else '',
+        'hora_llegada': _time(timezone.localtime(task.started_at)) if task.started_at else '',
+        'entrada_obra': _time(timezone.localtime(task.arrived_at)) if task.arrived_at else '',
+        'salida_obra': _time(timezone.localtime(task.finished_at)) if task.finished_at else '',
+        'trabajos': '\n'.join(part for part in [task.title, task.description] if part),
+    }
 
 
 def _safe_login_redirect(request):
@@ -127,6 +154,7 @@ def init_data(request):
         'ids': list(proyectos.values_list('codigo', flat=True)),
         'obraMap': obra_map,
         'profileMap': profile_map,
+        'taskProfile': _task_prefill(request),
     })
 
 

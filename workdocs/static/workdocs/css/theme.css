@@ -186,6 +186,44 @@ body.workdocs-theme .task-card:focus {
   background: rgba(73, 201, 133, .18) !important;
   color: var(--wl-text);
 }
+.vehicle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(190, 235, 213, .28);
+  border-radius: 8px;
+  background: rgba(7, 20, 17, .62);
+}
+.vehicle-chip img,
+.vehicle-result img {
+  width: 40px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(190, 235, 213, .22);
+}
+.vehicle-chip span,
+.vehicle-result > span {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(73, 201, 133, .18);
+  color: var(--wl-text);
+}
+.vehicle-chip button {
+  border: 0;
+  background: transparent;
+  color: var(--wl-text);
+}
+.vehicle-result {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+}
 
 .users-panel {
   padding: 2px;
@@ -253,9 +291,20 @@ body.workdocs-theme .task-card:focus {
 .pdf-preview-frame {
   display: block;
   width: 100%;
-  height: min(78vh, 820px);
+  height: calc(100vh - 63px);
   border: 0;
   background: #fff;
+}
+.pdf-preview-modal .modal-content {
+  height: 100vh;
+  background: rgba(7, 20, 17, .96);
+}
+.pdf-preview-modal .modal-header {
+  flex: 0 0 auto;
+}
+.pdf-preview-modal .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .vehicles-grid {
   align-items: stretch;

@@ -84,6 +84,7 @@ class Task(models.Model):
         blank=True,
         limit_choices_to={'work_profile__role': UserProfile.ROLE_TECHNICIAN},
     )
+    vehicle = models.ForeignKey('partes.Vehiculo', blank=True, null=True, on_delete=models.SET_NULL)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     started_at = models.DateTimeField(blank=True, null=True)

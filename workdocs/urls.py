@@ -5,6 +5,7 @@ from . import views
 urlpatterns = [
     path('', views.dashboard, name='workdocs_dashboard'),
     path('api/users/search/', views.user_search, name='workdocs_user_search'),
+    path('api/vehicles/search/', views.vehicle_search, name='workdocs_vehicle_search'),
     path('tareas/', views.task_list, name='workdocs_task_list'),
     path('tareas/nueva/', views.task_create, name='workdocs_task_create'),
     path('tareas/<int:pk>/', views.task_detail, name='workdocs_task_detail'),

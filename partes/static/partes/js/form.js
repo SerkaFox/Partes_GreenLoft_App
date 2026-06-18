@@ -29,6 +29,7 @@ const EMPTY_PROFILE = {
 };
 let obraMap = {};
 let serverProfiles = {};
+let taskProfile = {};
 let currentTecnico = '';
 let isApplyingState = false;
 let draftTimer = 0;
@@ -198,6 +199,28 @@ function restoreLastTecnico() {
   }
 }
 
+function applyTaskProfile() {
+  if (!taskProfile || !Object.keys(taskProfile).length) return;
+  const tecnico = taskProfile.tecnico || '';
+  if (tecnico && fieldExists('tecnico', tecnico)) {
+    form.elements.tecnico.value = tecnico;
+    currentTecnico = tecnico;
+    rememberLastTecnico(tecnico);
+  }
+  PROFILE_FIELDS.forEach(name => {
+    const field = form.elements[name];
+    if (!field || taskProfile[name] === undefined || !fieldExists(name, taskProfile[name])) return;
+    if (field.type === 'checkbox') {
+      field.checked = Boolean(taskProfile[name]);
+    } else {
+      field.value = taskProfile[name] ?? '';
+    }
+  });
+  syncFridayJornada();
+  syncJornada();
+  syncProyecto();
+}
+
 function rememberLastTecnico(tecnico) {
   const store = readStore();
   store.lastTecnico = tecnico || '';
@@ -285,15 +308,19 @@ function initPasswordToggle() {
 
 async function init() {
   form.elements.fecha.value = todayIso();
-  const response = await fetch('/api/init-data/');
+  const params = new URLSearchParams(window.location.search);
+  const taskId = params.get('task');
+  const response = await fetch(`/api/init-data/${taskId ? `?task=${encodeURIComponent(taskId)}` : ''}`);
   const data = await response.json();
   obraMap = data.obraMap || {};
   serverProfiles = data.profileMap || {};
+  taskProfile = data.taskProfile || {};
   fillSelect(form.elements.tecnico, data.tecnicos || [], 'Selecciona técnico');
   fillSelect(form.elements.companero, data.companeros || [], '— Selecciona —');
   fillSelect(form.elements.matricula, data.vehiculos || [], 'Sin matrícula');
   fillSelect(form.elements.proyecto_id, data.ids || [], 'Selecciona proyecto');
   restoreLastTecnico();
+  applyTaskProfile();
   syncFridayJornada();
   syncProyecto();
 }

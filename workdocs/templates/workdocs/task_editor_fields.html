@@ -3,6 +3,7 @@
   {{ form.longitude }}
   {{ form.assigned_to }}
   {{ form.technicians }}
+  {{ form.vehicle }}
   <div class="row g-3">
     <div class="col-md-8">
       <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
@@ -58,6 +59,14 @@
       <input class="form-control technician-search" type="text" placeholder="Escribe el nombre del técnico..." autocomplete="off">
       <div class="user-results d-none technician-results"></div>
       {% for error in form.technicians.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+
+    <div class="col-12 position-relative">
+      <label class="form-label">Vehículo</label>
+      <div class="selected-vehicle mb-2"></div>
+      <input class="form-control vehicle-search-input" type="text" placeholder="Buscar por matrícula..." autocomplete="off">
+      <div class="user-results d-none vehicle-results"></div>
+      {% for error in form.vehicle.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
     </div>
   </div>
 </div>
