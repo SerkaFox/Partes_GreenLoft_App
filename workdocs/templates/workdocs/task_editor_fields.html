@@ -1,0 +1,52 @@
+<div class="task-editor" data-lat="{{ form.instance.latitude|default:'' }}" data-lng="{{ form.instance.longitude|default:'' }}">
+  {{ form.latitude }}
+  {{ form.longitude }}
+  {{ form.assigned_to }}
+  <div class="row g-3">
+    <div class="col-md-8">
+      <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+      {{ form.title }}
+      {% for error in form.title.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
+      {{ form.status }}
+      {% for error in form.status.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+
+    <div class="col-12">
+      <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+      {{ form.description }}
+      {% for error in form.description.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+      <div class="border rounded p-3 mt-2 bg-light">
+        <div class="small text-muted mb-2">Puedes grabar una descripción por voz. La transcripción se añadirá más adelante.</div>
+        <input class="description-audio-input" type="file" name="description_audio" accept="audio/*" hidden>
+        <audio class="description-audio-player w-100 d-none mb-2" controls></audio>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-sm btn-outline-secondary record-description" type="button">Grabar descripción</button>
+          <button class="btn btn-sm btn-outline-secondary stop-description d-none" type="button">Detener</button>
+          <button class="btn btn-sm btn-outline-primary use-description-audio d-none" type="button">Usar audio</button>
+        </div>
+        <div class="small text-muted mt-2 description-audio-status"></div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <label class="form-label" for="{{ form.address.id_for_label }}">Dirección o nombre del lugar</label>
+      <div class="input-group">
+        {{ form.address }}
+        <button class="btn btn-outline-primary map-search-button" type="button">Buscar</button>
+      </div>
+      <div class="small text-muted mt-1">Mueve el marcador para ajustar la ubicación.</div>
+      {% for error in form.address.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+      <div class="map-box mt-2"></div>
+    </div>
+
+    <div class="col-12 position-relative">
+      <label class="form-label">Técnico asignado</label>
+      <input class="form-control technician-search" type="text" placeholder="Escribe el nombre del técnico..." value="{% if form.instance.assigned_to %}{{ form.instance.assigned_to.get_full_name|default:form.instance.assigned_to.username }}{% endif %}" autocomplete="off">
+      <div class="user-results d-none technician-results"></div>
+      {% for error in form.assigned_to.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+  </div>
+</div>

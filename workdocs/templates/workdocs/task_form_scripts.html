@@ -1,0 +1,163 @@
+<script>
+function initFilePreviews(root = document) {
+  root.querySelectorAll('.multi-file-input').forEach(input => {
+    if (input.dataset.previewReady) return;
+    input.dataset.previewReady = '1';
+    const preview = document.querySelector(input.dataset.previewTarget);
+    let files = [];
+    const sync = () => {
+      const data = new DataTransfer();
+      files.forEach(file => data.items.add(file));
+      input.files = data.files;
+      render();
+    };
+    const icon = file => {
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) return 'PDF';
+      if (file.type.startsWith('audio/')) return 'Audio';
+      if (file.type.startsWith('video/')) return 'Vídeo';
+      return 'Documento';
+    };
+    const render = () => {
+      if (!preview) return;
+      preview.innerHTML = '';
+      files.forEach((file, index) => {
+        const card = document.createElement('div');
+        card.className = 'file-preview-card';
+        let media = `<div class="p-3 text-center bg-light rounded">${icon(file)}</div>`;
+        if (file.type.startsWith('image/')) media = `<img src="${URL.createObjectURL(file)}" alt="">`;
+        if (file.type.startsWith('video/')) media = `<video src="${URL.createObjectURL(file)}" controls></video>`;
+        if (file.type.startsWith('audio/')) media = `<audio class="w-100" src="${URL.createObjectURL(file)}" controls></audio>`;
+        card.innerHTML = `${media}<div class="small fw-semibold mt-2 text-break">${file.name}</div><button class="btn btn-sm btn-outline-danger mt-2" type="button">Eliminar</button>`;
+        card.querySelector('button').addEventListener('click', () => {
+          files.splice(index, 1);
+          sync();
+        });
+        preview.appendChild(card);
+      });
+    };
+    input.addEventListener('change', () => {
+      files = [...input.files];
+      render();
+    });
+  });
+}
+
+function initTaskEditors() {
+  document.querySelectorAll('.task-editor').forEach(editor => {
+    if (editor.dataset.editorReady) return;
+    editor.dataset.editorReady = '1';
+    const latInput = editor.querySelector('[name="latitude"]');
+    const lngInput = editor.querySelector('[name="longitude"]');
+    const addressInput = editor.querySelector('[name="address"]');
+    const assignedInput = editor.querySelector('[name="assigned_to"]');
+    const techSearch = editor.querySelector('.technician-search');
+    const techResults = editor.querySelector('.technician-results');
+    const mapEl = editor.querySelector('.map-box');
+    const start = [
+      parseFloat(latInput.value || editor.dataset.lat || '43.2630'),
+      parseFloat(lngInput.value || editor.dataset.lng || '-2.9350')
+    ];
+    const map = L.map(mapEl).setView(start, latInput.value && lngInput.value ? 15 : 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    const marker = L.marker(start, { draggable: true }).addTo(map);
+    const setPoint = latlng => {
+      latInput.value = Number(latlng.lat).toFixed(7);
+      lngInput.value = Number(latlng.lng).toFixed(7);
+      marker.setLatLng(latlng);
+      map.setView(latlng, 16);
+    };
+    marker.on('dragend', () => setPoint(marker.getLatLng()));
+    map.on('click', event => setPoint(event.latlng));
+    editor.querySelector('.map-search-button').addEventListener('click', async () => {
+      const query = addressInput.value.trim();
+      if (!query) return;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+      const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const data = await response.json();
+      if (data.length) {
+        setPoint({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+      }
+    });
+    setTimeout(() => map.invalidateSize(), 250);
+
+    let techTimer = null;
+    techSearch.addEventListener('input', () => {
+      assignedInput.value = '';
+      clearTimeout(techTimer);
+      techTimer = setTimeout(async () => {
+        const q = techSearch.value.trim();
+        if (q.length < 2) {
+          techResults.classList.add('d-none');
+          return;
+        }
+        const response = await fetch(`/trabajo/api/users/search/?q=${encodeURIComponent(q)}&role=technician`);
+        const users = await response.json();
+        techResults.innerHTML = users.length ? '' : '<div class="p-3 text-muted">Sin resultados</div>';
+        users.forEach(user => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'user-result';
+          button.innerHTML = `<strong>${user.full_name}</strong><div class="small text-muted">${user.username}</div>`;
+          button.addEventListener('click', () => {
+            assignedInput.value = user.id;
+            techSearch.value = user.full_name;
+            techResults.classList.add('d-none');
+          });
+          techResults.appendChild(button);
+        });
+        techResults.classList.remove('d-none');
+      }, 220);
+    });
+
+    const recordBtn = editor.querySelector('.record-description');
+    const stopBtn = editor.querySelector('.stop-description');
+    const useBtn = editor.querySelector('.use-description-audio');
+    const audioInput = editor.querySelector('.description-audio-input');
+    const player = editor.querySelector('.description-audio-player');
+    const status = editor.querySelector('.description-audio-status');
+    let recorder;
+    let chunks = [];
+    let recordedFile = null;
+    recordBtn.addEventListener('click', async () => {
+      if (!navigator.mediaDevices) return;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recorder = new MediaRecorder(stream);
+      chunks = [];
+      recorder.ondataavailable = event => chunks.push(event.data);
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+        recordedFile = new File([blob], `descripcion-${Date.now()}.webm`, { type: blob.type });
+        player.src = URL.createObjectURL(recordedFile);
+        player.classList.remove('d-none');
+        useBtn.classList.remove('d-none');
+        status.textContent = 'Audio grabado. Pulsa Usar audio antes de guardar.';
+        stream.getTracks().forEach(track => track.stop());
+      };
+      recorder.start();
+      recordBtn.classList.add('d-none');
+      stopBtn.classList.remove('d-none');
+      status.textContent = 'Grabando...';
+    });
+    stopBtn.addEventListener('click', () => {
+      if (recorder && recorder.state === 'recording') recorder.stop();
+      stopBtn.classList.add('d-none');
+      recordBtn.classList.remove('d-none');
+    });
+    useBtn.addEventListener('click', () => {
+      if (!recordedFile) return;
+      const data = new DataTransfer();
+      data.items.add(recordedFile);
+      audioInput.files = data.files;
+      status.textContent = 'Audio listo para guardar.';
+    });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initFilePreviews();
+  initTaskEditors();
+});
+</script>

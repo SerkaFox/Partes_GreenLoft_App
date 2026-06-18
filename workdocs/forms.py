@@ -26,16 +26,17 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
         labels = {
             'title': 'Título',
             'description': 'Descripción',
-            'address': 'Dirección',
+            'address': 'Dirección o nombre del lugar',
             'latitude': 'Latitud',
             'longitude': 'Longitud',
             'assigned_to': 'Técnico asignado',
             'status': 'Estado',
         }
         widgets = {
-            'description': forms.Textarea(attrs={'rows': 4}),
-            'latitude': forms.NumberInput(attrs={'step': '0.0000001'}),
-            'longitude': forms.NumberInput(attrs={'step': '0.0000001'}),
+            'description': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+            'latitude': forms.HiddenInput(),
+            'longitude': forms.HiddenInput(),
+            'assigned_to': forms.HiddenInput(),
         }
 
     def __init__(self, *args, **kwargs):
@@ -45,6 +46,7 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
         technicians = User.objects.filter(work_profile__role=UserProfile.ROLE_TECHNICIAN, is_active=True).order_by('first_name', 'username')
         self.fields['assigned_to'].queryset = technicians
         self.fields['assigned_to'].required = False
+        self.fields['assigned_to'].label_from_instance = lambda user: user.get_full_name() or user.get_username()
         if role == UserProfile.ROLE_TECHNICIAN:
             for field in self.fields.values():
                 field.disabled = True

@@ -10,7 +10,6 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.mail import EmailMessage
 from django.db.models import Q
@@ -29,6 +28,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from .forms import PanelLoginForm, ParteTrabajoForm, ProyectoForm, TecnicoForm, VehiculoForm
 from .models import ParteTrabajo, ParteTrabajoFoto, Proyecto, Tecnico, Vehiculo
 from .services.google_sheets import append_parte_to_google_sheet
+from workdocs.decorators import admin_or_manager_required, technician_redirect_if_panel
 
 SPECIAL_COMPANEROS = ['Sin acompañante', 'Tecnico de practicas']
 MAX_PHOTOS = 8
@@ -40,6 +40,7 @@ def index(request):
     return render(request, 'partes/home.html')
 
 
+@technician_redirect_if_panel
 def parte_form(request):
     return render(request, 'partes/index.html')
 
@@ -52,6 +53,7 @@ def _safe_login_redirect(request):
 
 
 @require_GET
+@technician_redirect_if_panel
 def init_data(request):
     proyectos = Proyecto.objects.filter(activo=True)
     obra_map = {p.codigo: {'cliente': p.cliente, 'obra': p.obra} for p in proyectos}
@@ -329,6 +331,7 @@ CSV_HEADERS = [
 
 
 @require_POST
+@technician_redirect_if_panel
 def submit_parte(request):
     try:
         data, photos = _request_data(request)
@@ -437,6 +440,7 @@ def panel_logout(request):
 
 
 @login_required(login_url='/panel/login/')
+@admin_or_manager_required
 def panel_dashboard(request):
     today = timezone.localdate()
     month_start = today.replace(day=1)
@@ -463,21 +467,25 @@ def _list_edit(request, model, form_class, template, title, redirect_name, pk=No
 
 
 @login_required(login_url='/panel/login/')
+@admin_or_manager_required
 def panel_tecnicos(request, pk=None):
     return _list_edit(request, Tecnico, TecnicoForm, 'partes/panel/tecnicos.html', 'Técnicos', 'panel_tecnicos', pk)
 
 
 @login_required(login_url='/panel/login/')
+@admin_or_manager_required
 def panel_vehiculos(request, pk=None):
     return _list_edit(request, Vehiculo, VehiculoForm, 'partes/panel/vehiculos.html', 'Vehículos', 'panel_vehiculos', pk)
 
 
 @login_required(login_url='/panel/login/')
+@admin_or_manager_required
 def panel_proyectos(request, pk=None):
     return _list_edit(request, Proyecto, ProyectoForm, 'partes/panel/proyectos.html', 'Obras / Proyectos', 'panel_proyectos', pk)
 
 
 @login_required(login_url='/panel/login/')
+@admin_or_manager_required
 def panel_partes(request):
     qs = ParteTrabajo.objects.select_related('tecnico', 'matricula', 'proyecto')
     date_from = request.GET.get('date_from') or ''
@@ -504,6 +512,7 @@ def panel_partes(request):
 
 
 @login_required(login_url='/panel/login/')
+@admin_or_manager_required
 def panel_parte_edit(request, pk):
     parte = get_object_or_404(ParteTrabajo, pk=pk)
     form = ParteTrabajoForm(request.POST or None, instance=parte)
@@ -529,6 +538,7 @@ def panel_parte_edit(request, pk):
 
 
 @login_required(login_url='/panel/login/')
+@admin_or_manager_required
 def panel_resend_email(request, pk):
     parte = get_object_or_404(ParteTrabajo, pk=pk)
     ok, error = send_parte_email(parte)
@@ -540,6 +550,7 @@ def panel_resend_email(request, pk):
 
 
 @login_required(login_url='/panel/login/')
+@admin_or_manager_required
 def panel_export_csv(request):
     qs = ParteTrabajo.objects.select_related('tecnico', 'matricula', 'proyecto')
     date_from = request.GET.get('date_from') or ''

@@ -95,6 +95,15 @@ def _save_uploaded_files(task, user, files, comment=''):
     return saved
 
 
+def _save_description_audio(task, user, uploaded):
+    if not uploaded:
+        return None
+    report = TaskVoiceReport.objects.create(task=task, technician=user, audio_file=uploaded)
+    _add_event(task, user, TaskEvent.EVENT_AUDIO, 'Descripción de voz añadida.')
+    transcribe_audio(report.pk)
+    return report
+
+
 @login_required(login_url='/panel/login/')
 def dashboard(request):
     role = get_user_role(request.user)
@@ -161,6 +170,7 @@ def task_create(request):
         if task.assigned_to:
             _add_event(task, request.user, TaskEvent.EVENT_ASSIGNED, f'Técnico asignado: {_display_user(task.assigned_to)}.')
         _save_uploaded_files(task, request.user, request.FILES.getlist('files'), request.POST.get('comment', ''))
+        _save_description_audio(task, request.user, request.FILES.get('description_audio'))
         messages.success(request, 'Guardado correctamente.')
         return redirect('workdocs_task_detail', pk=task.pk)
     return render(request, 'workdocs/task_form.html', {'form': form, 'file_form': file_form, 'title': 'Crear tarea'})
@@ -182,6 +192,7 @@ def task_detail(request, pk):
                 if old_assignee != task.assigned_to_id and task.assigned_to:
                     _add_event(task, request.user, TaskEvent.EVENT_ASSIGNED, f'Técnico asignado: {_display_user(task.assigned_to)}.')
                 _add_event(task, request.user, TaskEvent.EVENT_STATUS, f'Estado actualizado: {task.get_status_display()}.')
+                _save_description_audio(task, request.user, request.FILES.get('description_audio'))
                 messages.success(request, 'Guardado correctamente.')
                 return redirect('workdocs_task_detail', pk=task.pk)
         elif action == 'upload_files':
