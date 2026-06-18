@@ -18,6 +18,10 @@ class UserProfile(models.Model):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='work_profile')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_TECHNICIAN)
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+    description = models.TextField(blank=True)
+    active = models.BooleanField(default=True)
+    vehicle = models.ForeignKey('partes.Vehiculo', blank=True, null=True, on_delete=models.SET_NULL)
 
     class Meta:
         verbose_name = 'Perfil de trabajo'

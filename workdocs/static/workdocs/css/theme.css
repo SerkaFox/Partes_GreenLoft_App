@@ -84,6 +84,59 @@ body.login-theme::before {
   border-radius: 8px;
   background: rgba(6, 18, 15, .74);
 }
+.user-card-inactive {
+  opacity: .62;
+}
+.user-description {
+  color: var(--wl-text);
+  font-size: .92rem;
+}
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid rgba(190, 235, 213, .36);
+  background: rgba(73, 201, 133, .18);
+  color: #d9ffec;
+  font-weight: 750;
+  object-fit: cover;
+}
+.avatar-sm {
+  width: 28px;
+  height: 28px;
+  font-size: .78rem;
+}
+.avatar-md {
+  width: 48px;
+  height: 48px;
+  font-size: 1.1rem;
+}
+.avatar-lg {
+  width: 64px;
+  height: 64px;
+  font-size: 1.35rem;
+}
+.avatar-xl {
+  width: 112px;
+  height: 112px;
+  font-size: 2.2rem;
+}
+.avatar-initials {
+  text-transform: uppercase;
+}
+.nav-user-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 240px;
+}
+.nav-user-link span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .compact-meta,
 .text-muted,

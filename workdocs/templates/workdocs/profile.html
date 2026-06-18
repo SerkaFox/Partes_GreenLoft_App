@@ -3,19 +3,29 @@
 <div class="row g-3">
   <div class="col-lg-4">
     <div class="card border-0 shadow-sm">
-      <div class="card-header bg-white fw-semibold">Cabinete de usuario</div>
-      <div class="card-body">
+      <div class="card-header bg-white fw-semibold">Perfil de usuario</div>
+      <div class="card-body text-center">
+        {% if profile.avatar %}
+        <img class="avatar avatar-xl mb-3" src="{{ profile.avatar.url }}" alt="{{ request.user.get_full_name|default:request.user.username }}">
+        {% else %}
+        {% firstof request.user.first_name request.user.username as profile_avatar_seed %}
+        <div class="avatar avatar-xl avatar-initials mx-auto mb-3">{{ profile_avatar_seed|slice:":1"|upper }}</div>
+        {% endif %}
         <div class="compact-meta">Nombre</div>
         <div class="fw-semibold mb-3">{{ request.user.get_full_name|default:request.user.username }}</div>
         <div class="compact-meta">Rol</div>
-        <div class="fw-semibold">{{ profile.get_role_display }}</div>
+        <div class="fw-semibold mb-3">{{ profile.get_role_display }}</div>
+        {% if profile.description %}
+        <div class="compact-meta">Descripción</div>
+        <div>{{ profile.description|linebreaksbr }}</div>
+        {% endif %}
       </div>
     </div>
   </div>
   <div class="col-lg-8">
-    <form method="post" class="card border-0 shadow-sm">
+    <form method="post" enctype="multipart/form-data" class="card border-0 shadow-sm">
       {% csrf_token %}
-      <div class="card-header bg-white fw-semibold">Cambiar contraseña</div>
+      <div class="card-header bg-white fw-semibold">Editar perfil</div>
       <div class="card-body">
         {% for field in form %}
         <div class="mb-3">
@@ -25,7 +35,7 @@
         </div>
         {% endfor %}
       </div>
-      <div class="card-footer bg-white"><button class="btn btn-primary">Cambiar contraseña</button></div>
+      <div class="card-footer bg-white"><button class="btn btn-primary">Guardar perfil</button></div>
     </form>
   </div>
 </div>

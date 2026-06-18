@@ -3,7 +3,7 @@
 <h1 class="h3 mb-3">Usuarios</h1>
 <div class="row g-3">
   <div class="col-lg-5">
-    <form method="post" class="card border-0 shadow-sm">
+    <form method="post" enctype="multipart/form-data" class="card border-0 shadow-sm">
       {% csrf_token %}
       <div class="card-header bg-white fw-semibold">Crear usuario</div>
       <div class="card-body">
@@ -25,27 +25,41 @@
         <div class="row g-3">
           {% for item in users %}
           <div class="col-md-6">
-            <div class="user-card h-100">
+            <div class="user-card h-100 {% if not item.is_active or not item.work_profile.active %}user-card-inactive{% endif %}">
               <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
-                <div>
-                  <div class="fw-semibold">{{ item.get_full_name|default:'Sin nombre' }}</div>
+                <div class="d-flex gap-3 align-items-start">
+                  {% if item.work_profile.avatar %}
+                  <img class="avatar avatar-md" src="{{ item.work_profile.avatar.url }}" alt="{{ item.get_full_name|default:item.username }}">
+                  {% else %}
+                  {% firstof item.first_name item.username as user_avatar_seed %}
+                  <div class="avatar avatar-md avatar-initials">{{ user_avatar_seed|slice:":1"|upper }}</div>
+                  {% endif %}
+                  <div>
+                  <div class="fw-semibold">{{ item.get_full_name|default:item.username }}</div>
                   <div class="compact-meta">{{ item.username }}</div>
+                  </div>
                 </div>
-                {% if item.is_active %}
+                {% if item.is_active and item.work_profile.active %}
                 <span class="badge text-bg-success">Activo</span>
                 {% else %}
                 <span class="badge text-bg-secondary">Inactivo</span>
                 {% endif %}
               </div>
               <div class="compact-meta mb-3">Rol: {% if item.is_superuser %}Admin{% else %}{{ item.work_profile.get_role_display|default:'Sin rol' }}{% endif %}</div>
+              {% if item.work_profile.vehicle %}
+              <div class="compact-meta mb-3">Vehículo: {{ item.work_profile.vehicle }}</div>
+              {% endif %}
+              {% if item.work_profile.description %}
+              <div class="user-description mb-3">{{ item.work_profile.description|truncatechars:140 }}</div>
+              {% endif %}
+              <div class="compact-meta mb-3">Tareas activas: {{ item.active_task_count }}</div>
               <div class="d-flex flex-wrap gap-2">
-                <button class="btn btn-sm btn-outline-primary" type="button" disabled>Editar</button>
-                {% if item.work_profile.role == 'technician' %}
-                <a class="btn btn-sm btn-outline-primary" href="{% url 'workdocs_task_list' %}?technician={{ item.pk }}">Ver tareas</a>
-                {% else %}
-                <button class="btn btn-sm btn-outline-primary" type="button" disabled>Ver tareas</button>
-                {% endif %}
-                <button class="btn btn-sm btn-outline-primary" type="button" disabled>{% if item.is_active %}Desactivar{% else %}Activar{% endif %}</button>
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'workdocs_user_edit' item.pk %}">Editar</a>
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'workdocs_user_tasks' item.pk %}">Ver tareas</a>
+                <form method="post" action="{% url 'workdocs_user_toggle_active' item.pk %}" class="d-inline">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-outline-primary" type="submit">{% if item.is_active and item.work_profile.active %}Desactivar{% else %}Activar{% endif %}</button>
+                </form>
               </div>
             </div>
           </div>

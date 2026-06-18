@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from .forms import CommentForm, TaskFileForm, TaskForm, UserCreateForm, VoiceReportForm, WorkPasswordChangeForm
+from .forms import CommentForm, ProfileForm, TaskFileForm, TaskForm, UserCreateForm, UserEditForm, VoiceReportForm
 from .models import Task, TaskEvent, TaskFile, TaskVoiceReport, UserProfile
 from .services.transcription import transcribe_audio
 from .utils import detect_file_type, get_user_role, is_admin, is_manager, is_technician
@@ -21,8 +21,22 @@ def _display_user(user):
     return user.get_full_name() or user.get_username()
 
 
+def _can_manage_users(user):
+    return is_admin(user) or is_manager(user)
+
+
+def _ensure_profile(user):
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    if user.is_superuser and profile.role != UserProfile.ROLE_ADMIN:
+        profile.role = UserProfile.ROLE_ADMIN
+        profile.active = user.is_active
+        profile.save(update_fields=['role', 'active'])
+    UserProfile._meta.get_field('user').remote_field.set_cached_value(user, profile)
+    return profile
+
+
 def _technicians():
-    return User.objects.filter(work_profile__role=UserProfile.ROLE_TECHNICIAN, is_active=True).order_by('first_name', 'username')
+    return User.objects.filter(work_profile__role=UserProfile.ROLE_TECHNICIAN, work_profile__active=True, is_active=True).order_by('first_name', 'username')
 
 
 def _user_payload(user):
@@ -40,7 +54,7 @@ def user_search(request):
     role = request.GET.get('role') or ''
     if len(q) < 2:
         return JsonResponse([], safe=False)
-    qs = User.objects.filter(is_active=True).select_related('work_profile')
+    qs = User.objects.filter(is_active=True, work_profile__active=True).select_related('work_profile')
     if role == UserProfile.ROLE_TECHNICIAN:
         qs = qs.filter(work_profile__role=UserProfile.ROLE_TECHNICIAN)
     elif role in {'admin_manager', 'administration'}:
@@ -294,27 +308,84 @@ def technician_status(request, pk, action):
 
 @login_required(login_url='/panel/login/')
 def profile(request):
-    profile_obj, _ = UserProfile.objects.get_or_create(user=request.user)
-    if request.user.is_superuser and profile_obj.role != UserProfile.ROLE_ADMIN:
-        profile_obj.role = UserProfile.ROLE_ADMIN
-        profile_obj.save(update_fields=['role'])
-    form = WorkPasswordChangeForm(request.user, request.POST or None)
+    profile_obj = _ensure_profile(request.user)
+    form = ProfileForm(request.POST or None, request.FILES or None, user=request.user)
     if request.method == 'POST' and form.is_valid():
         user = form.save()
         update_session_auth_hash(request, user)
-        messages.success(request, 'Contraseña cambiada correctamente.')
+        messages.success(request, 'Perfil actualizado correctamente.')
         return redirect('workdocs_profile')
     return render(request, 'workdocs/profile.html', {'profile': profile_obj, 'form': form, 'role': get_user_role(request.user)})
 
 
 @login_required(login_url='/panel/login/')
 def user_list(request):
-    if not (is_admin(request.user) or is_manager(request.user)):
+    if not _can_manage_users(request.user):
         raise PermissionDenied
-    form = UserCreateForm(request.POST or None)
+    form = UserCreateForm(request.POST or None, request.FILES or None)
     if request.method == 'POST' and form.is_valid():
         form.save()
         messages.success(request, 'Usuario creado correctamente.')
         return redirect('workdocs_users')
-    users = User.objects.select_related('work_profile').order_by('username')
+    active_statuses = _active_statuses()
+    users = (
+        User.objects.select_related('work_profile')
+        .annotate(active_task_count=Count('assigned_work_tasks', filter=Q(assigned_work_tasks__status__in=active_statuses), distinct=True))
+        .order_by('username')
+    )
+    for item in users:
+        _ensure_profile(item)
     return render(request, 'workdocs/users.html', {'users': users, 'form': form})
+
+
+@login_required(login_url='/panel/login/')
+def user_edit(request, pk):
+    if not _can_manage_users(request.user):
+        raise PermissionDenied
+    user = get_object_or_404(User.objects.select_related('work_profile'), pk=pk)
+    _ensure_profile(user)
+    form = UserEditForm(request.POST or None, request.FILES or None, user=user, actor=request.user)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Usuario actualizado correctamente.')
+        return redirect('workdocs_users')
+    return render(request, 'workdocs/user_edit.html', {'edited_user': user, 'form': form, 'role': get_user_role(request.user)})
+
+
+@login_required(login_url='/panel/login/')
+@require_POST
+def user_toggle_active(request, pk):
+    if not _can_manage_users(request.user):
+        raise PermissionDenied
+    user = get_object_or_404(User.objects.select_related('work_profile'), pk=pk)
+    profile_obj = _ensure_profile(user)
+    if user.pk == request.user.pk and user.is_active and profile_obj.active:
+        messages.error(request, 'No puedes desactivar tu propia cuenta.')
+        return redirect('workdocs_users')
+    next_active = not (user.is_active and profile_obj.active)
+    user.is_active = next_active
+    user.save(update_fields=['is_active'])
+    profile_obj.active = next_active
+    profile_obj.save(update_fields=['active'])
+    messages.success(request, 'Usuario activado correctamente.' if next_active else 'Usuario desactivado correctamente.')
+    return redirect('workdocs_users')
+
+
+@login_required(login_url='/panel/login/')
+def user_tasks(request, pk):
+    if not _can_manage_users(request.user):
+        raise PermissionDenied
+    user = get_object_or_404(User.objects.select_related('work_profile'), pk=pk)
+    profile_obj = _ensure_profile(user)
+    tasks = _visible_tasks(request.user).filter(assigned_to=user).select_related('created_by', 'assigned_to')
+    active_tasks = tasks.filter(status__in=_active_statuses())
+    finished_tasks = tasks.filter(status__in=[Task.STATUS_FINALIZADA, Task.STATUS_CANCELADA])
+    events = TaskEvent.objects.filter(task__in=tasks).select_related('task', 'user')[:80]
+    return render(request, 'workdocs/user_tasks.html', {
+        'staff_user': user,
+        'staff_profile': profile_obj,
+        'active_tasks': active_tasks,
+        'finished_tasks': finished_tasks,
+        'events': events,
+        'role': get_user_role(request.user),
+    })

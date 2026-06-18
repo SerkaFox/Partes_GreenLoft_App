@@ -12,4 +12,7 @@ urlpatterns = [
     path('tecnicos/<int:pk>/', views.technician_detail, name='workdocs_technician_detail'),
     path('perfil/', views.profile, name='workdocs_profile'),
     path('usuarios/', views.user_list, name='workdocs_users'),
+    path('usuarios/<int:pk>/editar/', views.user_edit, name='workdocs_user_edit'),
+    path('usuarios/<int:pk>/toggle-active/', views.user_toggle_active, name='workdocs_user_toggle_active'),
+    path('usuarios/<int:pk>/tareas/', views.user_tasks, name='workdocs_user_tasks'),
 ]

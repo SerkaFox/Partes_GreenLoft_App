@@ -1,0 +1,68 @@
+{% extends 'workdocs/base.html' %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div class="d-flex align-items-center gap-3">
+    {% if staff_profile.avatar %}
+    <img class="avatar avatar-lg" src="{{ staff_profile.avatar.url }}" alt="{{ staff_user.get_full_name|default:staff_user.username }}">
+    {% else %}
+    {% firstof staff_user.first_name staff_user.username as staff_avatar_seed %}
+    <div class="avatar avatar-lg avatar-initials">{{ staff_avatar_seed|slice:":1"|upper }}</div>
+    {% endif %}
+    <div>
+      <h1 class="h3 mb-1">{{ staff_user.get_full_name|default:staff_user.username }}</h1>
+      <div class="compact-meta">@{{ staff_user.username }} · {{ staff_profile.get_role_display }}</div>
+    </div>
+  </div>
+  <a class="btn btn-outline-primary" href="{% url 'workdocs_users' %}">Volver</a>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold">Tareas activas</div>
+      <div class="list-group list-group-flush">
+        {% for task in active_tasks %}
+        <a class="list-group-item list-group-item-action" href="{% url 'workdocs_task_detail' task.pk %}">
+          <div class="fw-semibold">{{ task.title }}</div>
+          <div class="compact-meta">{{ task.address|default:'Sin dirección' }}</div>
+          {% include 'workdocs/partials_status.html' with task=task %}
+        </a>
+        {% empty %}
+        <div class="list-group-item compact-meta">No hay tareas activas.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold">Finalizadas</div>
+      <div class="list-group list-group-flush">
+        {% for task in finished_tasks %}
+        <a class="list-group-item list-group-item-action" href="{% url 'workdocs_task_detail' task.pk %}">
+          <div class="fw-semibold">{{ task.title }}</div>
+          <div class="compact-meta">{{ task.address|default:'Sin dirección' }}</div>
+          {% include 'workdocs/partials_status.html' with task=task %}
+        </a>
+        {% empty %}
+        <div class="list-group-item compact-meta">No hay tareas finalizadas.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mt-3">
+  <div class="card-header bg-white fw-semibold">Historia reciente</div>
+  <div class="card-body timeline">
+    {% for event in events %}
+    <div class="timeline-item">
+      <div class="fw-semibold">{{ event.get_event_type_display }} · {{ event.task.title }}</div>
+      <div class="compact-meta">{{ event.user.get_full_name|default:event.user.username }} · {{ event.created_at|date:'d/m/Y H:i' }}</div>
+      {% if event.comment %}<div>{{ event.comment }}</div>{% endif %}
+    </div>
+    {% empty %}
+    <div class="compact-meta">No hay eventos recientes.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
