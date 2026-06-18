@@ -288,23 +288,45 @@ body.workdocs-theme .task-card:focus {
   border-radius: 8px;
   background: rgba(7, 20, 17, .46);
 }
+.pdf-preview-overlay[hidden] {
+  display: none !important;
+}
+.pdf-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: flex;
+  flex-direction: column;
+  background: rgba(3, 8, 6, .98);
+}
+.pdf-preview-toolbar {
+  flex: 0 0 auto;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--wl-border);
+  background: rgba(7, 20, 17, .96);
+}
+.pdf-preview-title {
+  min-width: 0;
+  color: var(--wl-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .pdf-preview-frame {
+  flex: 1 1 auto;
   display: block;
   width: 100%;
-  height: calc(100vh - 63px);
+  height: calc(100vh - 56px);
   border: 0;
   background: #fff;
 }
-.pdf-preview-modal .modal-content {
-  height: 100vh;
-  background: rgba(7, 20, 17, .96);
-}
-.pdf-preview-modal .modal-header {
-  flex: 0 0 auto;
-}
-.pdf-preview-modal .modal-body {
-  flex: 1 1 auto;
-  min-height: 0;
+body.pdf-preview-open {
+  overflow: hidden;
 }
 .vehicles-grid {
   align-items: stretch;

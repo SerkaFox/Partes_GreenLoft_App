@@ -1,0 +1,11 @@
+[Unit]
+Description=Run j_listoya voice transcription every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=15s
+Unit=j_listoya_transcribe.service
+
+[Install]
+WantedBy=timers.target

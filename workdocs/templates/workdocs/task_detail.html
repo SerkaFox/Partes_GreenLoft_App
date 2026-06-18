@@ -30,7 +30,7 @@
         <div class="row g-2 compact-meta">
           <div class="col-md-6">Creada por: {{ task.created_by.get_full_name|default:task.created_by.username }}</div>
           <div class="col-md-6">Técnicos: {% for technician in task.assigned_technicians %}{{ technician.get_full_name|default:technician.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</div>
-          <div class="col-md-6">Vehículo: {{ task.vehicle|default:'Sin vehículo' }}</div>
+          <div class="col-md-6">Vehículo: <span id="task-info-vehicle">{{ task.vehicle|default:'Sin vehículo' }}</span></div>
           {% if role != 'technician' %}
           <div class="col-md-6">Latitud: {{ task.latitude|default:'-' }}</div>
           <div class="col-md-6">Longitud: {{ task.longitude|default:'-' }}</div>
@@ -92,7 +92,7 @@
               {% if item.comment %}<div class="small mt-1">{{ item.comment }}</div>{% endif %}
               <div class="d-flex flex-wrap gap-2 mt-2">
                 {% if item.file_type == 'pdf' %}
-                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#pdf-preview-{{ item.pk }}">Vista previa</button>
+                <button class="btn btn-sm btn-outline-primary pdf-preview-button" type="button" data-pdf-url="{{ item.file.url }}" data-pdf-title="{{ item.original_name|default:item.file.name }}">Vista previa</button>
                 {% elif not item.is_image and not item.is_audio and not item.is_video %}
                 <span class="compact-meta align-self-center">Vista previa no disponible</span>
                 {% endif %}
@@ -100,21 +100,6 @@
               </div>
             </div>
           </div>
-          {% if item.file_type == 'pdf' %}
-          <div class="modal fade pdf-preview-modal" id="pdf-preview-{{ item.pk }}" tabindex="-1" aria-labelledby="pdf-preview-title-{{ item.pk }}" aria-hidden="true">
-            <div class="modal-dialog modal-fullscreen">
-              <div class="modal-content">
-                <div class="modal-header">
-                  <h2 class="modal-title fs-6" id="pdf-preview-title-{{ item.pk }}">{{ item.original_name|default:item.file.name }}</h2>
-                  <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body p-0">
-                  <iframe class="pdf-preview-frame" src="{{ item.file.url }}" title="{{ item.original_name|default:item.file.name }}"></iframe>
-                </div>
-              </div>
-            </div>
-          </div>
-          {% endif %}
           {% empty %}
           <div class="col-12 text-muted">No hay archivos.</div>
           {% endfor %}
@@ -231,6 +216,13 @@
     </div>
   </div>
 </div>
+<div class="pdf-preview-overlay" id="pdf-preview-overlay" hidden>
+  <div class="pdf-preview-toolbar">
+    <div class="pdf-preview-title" id="pdf-preview-title"></div>
+    <button class="btn btn-sm btn-light" type="button" id="pdf-preview-close">Cerrar</button>
+  </div>
+  <iframe class="pdf-preview-frame" id="pdf-preview-frame" title="Vista previa PDF"></iframe>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -273,6 +265,33 @@
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
+  const pdfOverlay = document.getElementById('pdf-preview-overlay');
+  const pdfFrame = document.getElementById('pdf-preview-frame');
+  const pdfTitle = document.getElementById('pdf-preview-title');
+  const pdfClose = document.getElementById('pdf-preview-close');
+  const closePdf = () => {
+    if (!pdfOverlay || !pdfFrame) return;
+    pdfOverlay.hidden = true;
+    pdfFrame.removeAttribute('src');
+    document.body.classList.remove('pdf-preview-open');
+  };
+  document.querySelectorAll('.pdf-preview-button').forEach(button => {
+    button.addEventListener('click', () => {
+      if (!pdfOverlay || !pdfFrame || !pdfTitle) return;
+      pdfTitle.textContent = button.dataset.pdfTitle || 'Vista previa';
+      pdfFrame.src = button.dataset.pdfUrl;
+      pdfOverlay.hidden = false;
+      document.body.classList.add('pdf-preview-open');
+    });
+  });
+  pdfClose?.addEventListener('click', closePdf);
+  pdfOverlay?.addEventListener('click', event => {
+    if (event.target === pdfOverlay) closePdf();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closePdf();
+  });
+
   const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
   const autosaveForm = document.getElementById('task-autosave-form');
   const autosaveStatus = document.getElementById('task-autosave-status');

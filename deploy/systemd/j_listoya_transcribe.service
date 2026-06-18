@@ -1,0 +1,9 @@
+[Unit]
+Description=Transcribe pending j.listoya.es voice reports
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/seradmin/jelec/j_listoya
+ExecStart=/home/seradmin/jelec/j_listoya/venv/bin/python manage.py transcribe_pending_voice_reports --limit 3
+User=seradmin
+Group=seradmin

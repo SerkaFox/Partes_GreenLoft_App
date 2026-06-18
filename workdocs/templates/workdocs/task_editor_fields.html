@@ -63,7 +63,20 @@
 
     <div class="col-12 position-relative">
       <label class="form-label">Vehículo</label>
-      <div class="selected-vehicle mb-2"></div>
+      <div class="selected-vehicle mb-2">
+        {% if form.instance.vehicle %}
+        <div class="vehicle-chip">
+          {% if form.instance.vehicle.image %}
+          <img src="{{ form.instance.vehicle.image.url }}" alt="{{ form.instance.vehicle.matricula }}">
+          {% else %}
+          <span>{{ form.instance.vehicle.matricula|slice:":1"|upper }}</span>
+          {% endif %}
+          <strong>{{ form.instance.vehicle.matricula }}{% if form.instance.vehicle.descripcion %} {{ form.instance.vehicle.descripcion }}{% endif %}</strong>
+        </div>
+        {% else %}
+        <span class="compact-meta">Sin vehículo seleccionado.</span>
+        {% endif %}
+      </div>
       <input class="form-control vehicle-search-input" type="text" placeholder="Buscar por matrícula..." autocomplete="off">
       <div class="user-results d-none vehicle-results"></div>
       {% for error in form.vehicle.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}

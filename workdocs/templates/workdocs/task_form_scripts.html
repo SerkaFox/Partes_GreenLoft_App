@@ -52,6 +52,7 @@ function initTaskEditors() {
     const assignedInput = editor.querySelector('[name="assigned_to"]');
     const techniciansSelect = editor.querySelector('.technicians-select');
     const vehicleSelect = editor.querySelector('.vehicle-select');
+    const vehicleInfo = document.getElementById('task-info-vehicle');
     const selectedVehicle = editor.querySelector('.selected-vehicle');
     const vehicleSearch = editor.querySelector('.vehicle-search-input');
     const vehicleResults = editor.querySelector('.vehicle-results');
@@ -119,6 +120,7 @@ function initTaskEditors() {
       selectedVehicle.innerHTML = '';
       if (!selectedOption || !selectedOption.value) {
         selectedVehicle.innerHTML = '<span class="compact-meta">Sin vehículo seleccionado.</span>';
+        if (vehicleInfo) vehicleInfo.textContent = 'Sin vehículo';
         return;
       }
       const label = selectedOption.label || selectedOption.textContent || selectedOption.matricula || '';
@@ -132,6 +134,7 @@ function initTaskEditors() {
         renderVehicle();
       });
       selectedVehicle.appendChild(item);
+      if (vehicleInfo) vehicleInfo.textContent = label;
     };
     const selectVehicle = vehicle => {
       if (!vehicleSelect || !vehicle) return;
