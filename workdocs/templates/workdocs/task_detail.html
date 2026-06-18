@@ -224,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const submitForm = async (form, statusEl, successText, failureText, pendingText = 'Guardando...') => {
     if (!form) return false;
     if (statusEl) statusEl.textContent = pendingText;
-    const response = await fetch(form.action || window.location.href, {
+    const response = await fetch(form.getAttribute('action') || window.location.href, {
       method: 'POST',
       body: new FormData(form),
       credentials: 'same-origin',
