@@ -217,19 +217,27 @@ document.addEventListener('DOMContentLoaded', () => {
   const autosaveForm = document.getElementById('task-autosave-form');
   const autosaveStatus = document.getElementById('task-autosave-status');
   let autosaveTimer;
-  const submitForm = async (form, statusEl, successText) => {
+  const formatErrors = data => {
+    if (!data || !data.errors) return '';
+    return Object.values(data.errors).flat().join(' ');
+  };
+  const submitForm = async (form, statusEl, successText, failureText, pendingText = 'Guardando...') => {
     if (!form) return false;
-    if (statusEl) statusEl.textContent = 'Guardando...';
+    if (statusEl) statusEl.textContent = pendingText;
     const response = await fetch(form.action || window.location.href, {
       method: 'POST',
       body: new FormData(form),
+      credentials: 'same-origin',
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
         ...(csrf ? {'X-CSRFToken': csrf} : {}),
       },
     });
+    const isJson = response.headers.get('content-type')?.includes('application/json');
+    const data = isJson ? await response.json() : null;
     if (!response.ok) {
-      if (statusEl) statusEl.textContent = 'No se pudo guardar. Revisa los campos.';
+      const detail = formatErrors(data) || `HTTP ${response.status}`;
+      if (statusEl) statusEl.textContent = `${failureText}: ${detail}`;
       return false;
     }
     if (statusEl) statusEl.textContent = successText;
@@ -241,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
       window.clearTimeout(autosaveTimer);
       autosaveStatus.textContent = 'Cambios pendientes...';
       autosaveTimer = window.setTimeout(() => {
-        submitForm(autosaveForm, autosaveStatus, 'Guardado automáticamente.');
+        submitForm(autosaveForm, autosaveStatus, 'Guardado automáticamente.', 'No se pudo guardar la tarea', 'Guardando...');
       }, 650);
     };
     autosaveForm.querySelectorAll('input, textarea, select').forEach(field => {
@@ -255,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileStatus = document.getElementById('file-upload-status');
   fileInput?.addEventListener('change', async () => {
     if (!fileInput.files.length) return;
-    const ok = await submitForm(fileForm, fileStatus, 'Archivo subido. Actualizando lista...');
+    const ok = await submitForm(fileForm, fileStatus, 'Archivo subido. Actualizando lista...', 'No se pudo subir el archivo', 'Subiendo archivo...');
     if (ok) window.location.reload();
   });
 
@@ -264,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const voiceStatus = document.getElementById('record-status');
   voiceInput?.addEventListener('change', async () => {
     if (!voiceInput.files.length) return;
-    const ok = await submitForm(voiceForm, voiceStatus, 'Audio subido. Actualizando lista...');
+    const ok = await submitForm(voiceForm, voiceStatus, 'Audio subido. Actualizando lista...', 'No se pudo subir el audio', 'Subiendo audio...');
     if (ok) window.location.reload();
   });
 });
