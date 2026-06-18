@@ -1,0 +1,24 @@
+{% extends 'partes/panel/base.html' %}
+{% block content %}
+<h1 class="h3 mb-4">{{ title }}</h1>
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card"><div class="card-body">
+      <h2 class="h5">{% if editing %}Editar{% else %}Añadir{% endif %}</h2>
+      <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="btn btn-primary">Guardar</button>
+        {% if editing %}<a class="btn btn-outline-secondary" href="{% url 'panel_tecnicos' %}">Cancelar</a>{% endif %}
+      </form>
+    </div></div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card"><div class="table-responsive">
+      <table class="table table-sm table-striped mb-0">
+        <thead><tr><th>Orden</th><th>Nombre</th><th>Email</th><th>Activo</th><th>Técnico</th><th>Compañero</th><th></th></tr></thead><tbody>{% for i in items %}<tr><td>{{ i.orden }}</td><td>{{ i.nombre }}</td><td>{{ i.email|default:'-' }}</td><td>{{ i.activo|yesno:'Sí,No' }}</td><td>{{ i.puede_ser_tecnico|yesno:'Sí,No' }}</td><td>{{ i.puede_ser_companero|yesno:'Sí,No' }}</td><td><a class="btn btn-sm btn-outline-primary" href="{% url 'panel_tecnico_edit' i.id %}">Editar</a></td></tr>{% endfor %}</tbody>
+      </table>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

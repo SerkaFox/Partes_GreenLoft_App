@@ -1,0 +1,24 @@
+{% extends 'partes/panel/base.html' %}
+{% block content %}
+<h1 class="h3 mb-4">{{ title }}</h1>
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card"><div class="card-body">
+      <h2 class="h5">{% if editing %}Editar{% else %}Añadir{% endif %}</h2>
+      <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="btn btn-primary">Guardar</button>
+        {% if editing %}<a class="btn btn-outline-secondary" href="{% url 'panel_proyectos' %}">Cancelar</a>{% endif %}
+      </form>
+    </div></div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card"><div class="table-responsive">
+      <table class="table table-sm table-striped mb-0">
+        <thead><tr><th>Orden</th><th>ID</th><th>Cliente</th><th>Obra</th><th>Activo</th><th></th></tr></thead><tbody>{% for i in items %}<tr><td>{{ i.orden }}</td><td>{{ i.codigo }}</td><td>{{ i.cliente }}</td><td>{{ i.obra }}</td><td>{{ i.activo|yesno:'Sí,No' }}</td><td><a class="btn btn-sm btn-outline-primary" href="{% url 'panel_proyecto_edit' i.id %}">Editar</a></td></tr>{% endfor %}</tbody>
+      </table>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

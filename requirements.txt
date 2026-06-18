@@ -1,0 +1,4 @@
+Django==6.0.5
+gunicorn==26.0.0
+reportlab==4.5.1
+python-dotenv==1.2.2

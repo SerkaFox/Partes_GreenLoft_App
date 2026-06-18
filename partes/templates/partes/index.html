@@ -1,0 +1,59 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gestión de Partes Técnicos</title>
+  <link rel="stylesheet" href="{% static 'partes/css/form.css' %}?v=202605311735">
+</head>
+<body>
+  <main class="page-shell">
+    <section class="form-card">
+      <h1>📋 Gestión de Partes Técnicos</h1>
+      <form id="parte-form" novalidate enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="grid">
+          <label>Técnico<select name="tecnico" required></select></label>
+          <label>Compañero<select name="companero"></select></label>
+          <label class="mobile-half">Fecha<input name="fecha" type="date" required></label>
+          <label class="mobile-half">Jornada<select name="jornada" required><option value="normal">Normal - 1h comida</option><option value="intensiva">Intensiva</option></select></label>
+          <label class="mobile-half">Hora llegada<input name="hora_llegada" type="time" step="900" required></label>
+          <label class="mobile-half">Hora salida<input name="hora_salida" type="time" step="900" required></label>
+          <label class="mobile-half">Matrícula<select name="matricula"></select></label>
+          <label class="mobile-half check-row compact-check"><input name="conductor" type="checkbox"> Conductor</label>
+          <label class="mobile-half">Entrada obra<input name="entrada_obra" type="time" step="900"></label>
+          <label class="mobile-half">Salida obra<input name="salida_obra" type="time" step="900"></label>
+          <label class="mobile-half">Hora comida<input name="hora_comida" type="time" step="900"></label>
+          <label class="mobile-half">Gastos<input name="gastos" type="number" min="0" step="0.01" inputmode="decimal"></label>
+          <label>Id proyecto<select name="proyecto_id" required></select></label>
+          <label>Cliente<input name="cliente" type="text" readonly></label>
+          <label class="span-2">Obra<input name="obra" type="text" readonly></label>
+          <label class="span-2">Trabajos realizados<textarea name="trabajos" rows="7" required></textarea></label>
+          <label class="span-2">Trabajos por administración<textarea name="admin" rows="4"></textarea></label>
+          <label class="span-2">Materiales instalados<textarea name="materiales" rows="4"></textarea></label>
+          <label class="span-2 photo-optin check-row photo-toggle-row"><input name="add_photos" type="checkbox"> Añadir fotos del trabajo realizado</label>
+          <div class="span-2 photo-panel" id="photo-panel" hidden>
+            <label>Fotos de resultado
+              <input name="photos" type="file" accept="image/*" multiple>
+            </label>
+            <div class="photo-actions">
+              <span>Se guardan durante 7 días.</span>
+            </div>
+            <div class="photo-preview" id="photo-preview"></div>
+          </div>
+          <label class="span-2 password-label">Contraseña de validación
+            <span class="password-wrap">
+              <input name="password" type="password" minlength="6" maxlength="6" autocomplete="current-password" required>
+              <button class="password-toggle" type="button" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button>
+            </span>
+          </label>
+        </div>
+        <button class="submit-btn" type="submit">ENVIAR PARTE FINALIZADO</button>
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+      </form>
+    </section>
+  </main>
+  <script src="{% static 'partes/js/form.js' %}?v=202605311735"></script>
+</body>
+</html>

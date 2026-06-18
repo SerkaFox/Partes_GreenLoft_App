@@ -1,0 +1,61 @@
+{% extends 'workdocs/base.html' %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-1">Panel de trabajo</h1>
+    <div class="text-muted">Buenos días. Revisa tus tareas asignadas.</div>
+  </div>
+  {% if role == 'admin' or role == 'manager' %}
+  <a class="btn btn-primary" href="{% url 'workdocs_task_create' %}">Crear tarea</a>
+  {% endif %}
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="compact-meta">Tareas pendientes</div><div class="fs-3 fw-semibold">{{ pending_count }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="compact-meta">Finalizadas</div><div class="fs-3 fw-semibold">{{ finished_count }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="compact-meta">Documentos nuevos</div><div class="fs-3 fw-semibold">{{ new_documents_count }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="compact-meta">Activas</div><div class="fs-3 fw-semibold">{{ active_count }}</div></div></div></div>
+</div>
+
+{% if role == 'admin' %}
+<h2 class="h5 mb-3">Técnicos</h2>
+<div class="row g-3 mb-4">
+  {% for technician in technicians %}
+  <div class="col-md-4 col-xl-3">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="fw-semibold">{{ technician.get_full_name|default:technician.username }}</div>
+        <div class="compact-meta">{{ technician.username }}</div>
+        <span class="badge text-bg-primary mt-2">{{ technician.active_tasks }} tareas pendientes</span>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col-12"><div class="alert alert-info">No hay técnicos configurados.</div></div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">Mis tareas</span>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'workdocs_task_list' %}">Ver todas</a>
+  </div>
+  <div class="list-group list-group-flush">
+    {% for task in tasks %}
+    <a class="list-group-item list-group-item-action" href="{% url 'workdocs_task_detail' task.pk %}">
+      <div class="d-flex justify-content-between gap-2">
+        <div>
+          <div class="fw-semibold">{{ task.title }}</div>
+          <div class="compact-meta">{{ task.address|default:'Sin dirección' }}</div>
+        </div>
+        <div>{% include 'workdocs/partials_status.html' with task=task %}</div>
+      </div>
+      {% if task.is_open %}<span class="badge text-bg-warning mt-2">Tarea no cerrada</span>{% endif %}
+    </a>
+    {% empty %}
+    <div class="list-group-item text-muted">No hay tareas.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

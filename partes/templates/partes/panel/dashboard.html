@@ -1,0 +1,17 @@
+{% extends 'partes/panel/base.html' %}
+{% block content %}
+<h1 class="h3 mb-4">Dashboard</h1>
+<div class="row g-3 mb-4">
+  <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Partes hoy</div><div class="display-6">{{ partes_today }}</div></div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Partes este mes</div><div class="display-6">{{ partes_month }}</div></div></div></div>
+</div>
+<div class="card">
+  <div class="card-header fw-bold">Últimos 20 partes</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead><tr><th>Fecha</th><th>Técnico</th><th>Cliente</th><th>Obra</th><th>Email</th><th>PDF</th></tr></thead>
+      <tbody>{% for p in latest_partes %}<tr><td>{{ p.fecha }}</td><td>{{ p.tecnico_nombre_snapshot }}</td><td>{{ p.cliente_snapshot }}</td><td>{{ p.obra_snapshot }}</td><td>{% if p.email_sent %}Enviado{% elif p.email_error %}<span class="text-warning">{{ p.email_error }}</span>{% else %}Pendiente{% endif %}</td><td>{% if p.pdf_file %}<a href="{{ p.pdf_file.url }}">PDF</a>{% endif %}</td></tr>{% empty %}<tr><td colspan="6">Sin partes.</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

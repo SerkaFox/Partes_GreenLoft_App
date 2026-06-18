@@ -1,0 +1,20 @@
+{% extends 'partes/panel/base.html' %}
+{% block content %}
+<h1 class="h3 mb-4">Partes de trabajo</h1>
+<div class="card mb-3"><div class="card-body">
+  <form class="row g-2" method="get">
+    <div class="col-md-2"><input class="form-control" type="date" name="date_from" value="{{ filters.date_from }}"></div>
+    <div class="col-md-2"><input class="form-control" type="date" name="date_to" value="{{ filters.date_to }}"></div>
+    <div class="col-md-2"><select class="form-select" name="tecnico"><option value="">Técnico</option>{% for t in tecnicos %}<option value="{{ t.id }}" {% if filters.tecnico == t.id|stringformat:'s' %}selected{% endif %}>{{ t.nombre }}</option>{% endfor %}</select></div>
+    <div class="col-md-2"><select class="form-select" name="vehiculo"><option value="">Vehículo</option>{% for v in vehiculos %}<option value="{{ v.id }}" {% if filters.vehiculo == v.id|stringformat:'s' %}selected{% endif %}>{{ v.matricula }}</option>{% endfor %}</select></div>
+    <div class="col-md-2"><input class="form-control" name="cliente" placeholder="Cliente" value="{{ filters.cliente }}"></div>
+    <div class="col-md-2"><button class="btn btn-primary">Filtrar</button> <a class="btn btn-outline-secondary" href="{% url 'panel_export_csv' %}?date_from={{ filters.date_from }}&date_to={{ filters.date_to }}">CSV</a></div>
+  </form>
+</div></div>
+<div class="card"><div class="table-responsive">
+<table class="table table-sm table-striped mb-0">
+<thead><tr><th>Fecha</th><th>Técnico</th><th>Vehículo</th><th>Cliente</th><th>Obra</th><th>Email</th><th>Archivos</th><th></th></tr></thead>
+<tbody>{% for p in items %}<tr><td>{{ p.fecha }}</td><td>{{ p.tecnico_nombre_snapshot }}</td><td>{{ p.vehiculo_text }}</td><td>{{ p.cliente_snapshot }}</td><td>{{ p.obra_snapshot }}</td><td>{% if p.email_sent %}<span class="text-success">Enviado</span>{% elif p.email_error %}<span class="text-warning">{{ p.email_error }}</span>{% else %}No enviado{% endif %}</td><td>{% if p.pdf_file %}<a href="{{ p.pdf_file.url }}">PDF</a>{% endif %}{% if p.csv_file %} · <a href="{{ p.csv_file.url }}">CSV</a>{% endif %}</td><td><a class="btn btn-sm btn-outline-primary" href="{% url 'panel_parte_edit' p.id %}">Editar</a> <a class="btn btn-sm btn-outline-secondary" href="{% url 'panel_resend_email' p.id %}">Reenviar email</a></td></tr>{% empty %}<tr><td colspan="8">Sin partes.</td></tr>{% endfor %}</tbody>
+</table>
+</div></div>
+{% endblock %}

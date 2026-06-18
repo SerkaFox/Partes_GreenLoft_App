@@ -1,0 +1,17 @@
+{% if task.status == 'NUEVA' %}
+<span class="badge text-bg-primary status-badge">Nueva</span>
+{% elif task.status == 'ASIGNADA' %}
+<span class="badge text-bg-info status-badge">Asignada</span>
+{% elif task.status == 'EN_CAMINO' %}
+<span class="badge text-bg-warning status-badge">En camino</span>
+{% elif task.status == 'EN_OBJETO' %}
+<span class="badge text-bg-warning status-badge">En objeto</span>
+{% elif task.status == 'EN_PROCESO' %}
+<span class="badge text-bg-secondary status-badge">En proceso</span>
+{% elif task.status == 'PENDIENTE_REVISION' %}
+<span class="badge text-bg-dark status-badge">Pendiente revisión</span>
+{% elif task.status == 'FINALIZADA' %}
+<span class="badge text-bg-success status-badge">Finalizada</span>
+{% elif task.status == 'CANCELADA' %}
+<span class="badge text-bg-danger status-badge">Cancelada</span>
+{% endif %}
