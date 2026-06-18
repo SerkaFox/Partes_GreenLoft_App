@@ -118,7 +118,8 @@ def _active_statuses():
 
 def _with_comment_count(qs):
     return qs.annotate(
-        comment_count=Count('events', filter=Q(events__event_type=TaskEvent.EVENT_COMMENT), distinct=True)
+        comment_count=Count('events', filter=Q(events__event_type=TaskEvent.EVENT_COMMENT), distinct=True),
+        voice_count=Count('voice_reports', filter=Q(voice_reports__report_type=TaskVoiceReport.TYPE_REPORT), distinct=True),
     )
 
 

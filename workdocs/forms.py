@@ -135,7 +135,7 @@ class CommentForm(BootstrapMixin, forms.ModelForm):
         model = TaskEvent
         fields = ['comment']
         labels = {'comment': 'Comentario'}
-        widgets = {'comment': forms.Textarea(attrs={'rows': 3})}
+        widgets = {'comment': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Escribir mensaje'})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

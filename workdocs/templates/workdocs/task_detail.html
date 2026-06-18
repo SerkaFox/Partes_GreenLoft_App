@@ -128,7 +128,7 @@
               {% elif item.report.transcript_status == 'error' %}
               <div class="text-danger small">{{ item.report.transcript_text|default:'No se pudo transcribir el audio.' }}</div>
               {% else %}
-              <div class="compact-meta">Pendiente de transcripción.</div>
+              <div class="compact-meta">Transcripción pendiente</div>
               {% endif %}
             </div>
           </div>
@@ -157,7 +157,7 @@
         <input type="hidden" name="action" value="voice">
         <input type="file" name="audio_file" class="visually-hidden" accept="audio/*" required id="id_audio_file">
         <div class="card-footer bg-white border-top d-flex flex-wrap gap-2 align-items-center">
-          <label class="btn btn-sm btn-outline-primary mb-0" for="id_audio_file">Audio</label>
+          <label class="btn btn-sm btn-outline-primary mb-0" for="id_audio_file">Subir audio</label>
           <button class="btn btn-sm btn-outline-primary" type="button" id="record-audio">Grabar voz</button>
           <button class="btn btn-sm btn-outline-primary d-none" type="button" id="stop-audio">Parar</button>
           <span class="compact-meta" id="record-status">El audio se sube automáticamente.</span>
@@ -370,6 +370,9 @@ document.addEventListener('DOMContentLoaded', () => {
         target.classList.add('history-highlight');
       }, 80);
     });
+  });
+  document.querySelectorAll('.task-comments-scroll').forEach(box => {
+    box.scrollTop = box.scrollHeight;
   });
 
   const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value;

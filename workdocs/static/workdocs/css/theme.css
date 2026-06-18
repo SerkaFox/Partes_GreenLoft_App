@@ -317,18 +317,17 @@ body.workdocs-theme .task-card:focus {
   background: rgba(73, 201, 133, .16);
 }
 .chat-voice-message {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  flex-wrap: wrap;
+  display: grid;
+  gap: 10px;
 }
 .chat-audio {
-  width: 180px;
-  max-width: 100%;
-  height: 34px;
+  display: block;
+  width: min(100%, 520px);
+  min-width: min(100%, 280px);
+  height: 42px;
 }
 .chat-transcript {
-  flex: 1 1 220px;
+  width: 100%;
   min-width: 0;
   padding: 8px 10px;
   border: 1px solid rgba(190, 235, 213, .18);
