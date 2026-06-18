@@ -15,4 +15,6 @@ urlpatterns = [
     path('usuarios/<int:pk>/editar/', views.user_edit, name='workdocs_user_edit'),
     path('usuarios/<int:pk>/toggle-active/', views.user_toggle_active, name='workdocs_user_toggle_active'),
     path('usuarios/<int:pk>/tareas/', views.user_tasks, name='workdocs_user_tasks'),
+    path('vehiculos/', views.vehicles, name='workdocs_vehicles'),
+    path('vehiculos/<int:pk>/', views.vehicles, name='workdocs_vehicle_edit'),
 ]

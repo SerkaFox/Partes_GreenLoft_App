@@ -27,7 +27,7 @@
     <a class="list-group-item list-group-item-action task-active {% if task.status == 'NUEVA' %}task-new-pulse{% endif %}" href="{% url 'workdocs_task_detail' task.pk %}">
       <div class="d-flex justify-content-between gap-2">
         <div>
-          <div class="fw-semibold">{{ task.title }}</div>
+          <div class="fw-semibold task-title">{{ task.title }}</div>
           <div class="compact-meta">{{ task.address|default:'Sin dirección' }}</div>
           <div class="compact-meta">Técnicos: {% for technician in task.assigned_technicians %}{{ technician.get_full_name|default:technician.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</div>
         </div>

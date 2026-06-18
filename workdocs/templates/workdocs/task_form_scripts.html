@@ -94,6 +94,7 @@ function initTaskEditors() {
     const selectedTechs = new Map(
       [...techniciansSelect.selectedOptions].map(option => [option.value, option.textContent])
     );
+    let visibleTechButtons = [];
     const syncTechnicians = () => {
       [...techniciansSelect.options].forEach(option => {
         option.selected = selectedTechs.has(option.value);
@@ -124,8 +125,10 @@ function initTaskEditors() {
         }
         const response = await fetch(`/trabajo/api/users/search/?q=${encodeURIComponent(q)}&role=technician`);
         const users = await response.json();
-        techResults.innerHTML = users.length ? '' : '<div class="p-3 text-muted">Sin resultados</div>';
-        users.forEach(user => {
+        const availableUsers = users.filter(user => !selectedTechs.has(String(user.id)));
+        visibleTechButtons = [];
+        techResults.innerHTML = availableUsers.length ? '' : '<div class="p-3 text-muted">Sin resultados</div>';
+        availableUsers.forEach(user => {
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'user-result';
@@ -142,9 +145,15 @@ function initTaskEditors() {
             techResults.classList.add('d-none');
           });
           techResults.appendChild(button);
+          visibleTechButtons.push(button);
         });
         techResults.classList.remove('d-none');
       }, 220);
+    });
+    techSearch.addEventListener('keydown', event => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      if (visibleTechButtons.length) visibleTechButtons[0].click();
     });
 
     const recordBtn = editor.querySelector('.record-description');

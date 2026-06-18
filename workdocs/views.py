@@ -9,6 +9,9 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
+from partes.forms import VehiculoForm
+from partes.models import Vehiculo
+
 from .forms import CommentForm, ProfileForm, TaskFileForm, TaskForm, UserCreateForm, UserEditForm, VoiceReportForm
 from .models import Task, TaskEvent, TaskFile, TaskVoiceReport, UserProfile
 from .services.transcription import transcribe_audio
@@ -413,5 +416,23 @@ def user_tasks(request, pk):
         'active_tasks': active_tasks,
         'finished_tasks': finished_tasks,
         'events': events,
+        'role': get_user_role(request.user),
+    })
+
+
+@login_required(login_url='/panel/login/')
+def vehicles(request, pk=None):
+    if not _can_manage_users(request.user):
+        raise PermissionDenied
+    vehicle = get_object_or_404(Vehiculo, pk=pk) if pk else None
+    form = VehiculoForm(request.POST or None, instance=vehicle)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Vehículo guardado correctamente.')
+        return redirect('workdocs_vehicles')
+    return render(request, 'workdocs/vehicles.html', {
+        'form': form,
+        'vehicles': Vehiculo.objects.all(),
+        'editing': vehicle,
         'role': get_user_role(request.user),
     })

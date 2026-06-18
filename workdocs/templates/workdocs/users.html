@@ -7,7 +7,7 @@
   </div>
 </div>
 <div class="row g-3">
-  <div class="col-lg-5">
+  <div class="col-xl-4">
     <form method="post" enctype="multipart/form-data" class="card border-0 shadow-sm">
       {% csrf_token %}
       <div class="card-header bg-white fw-semibold">Crear usuario</div>
@@ -23,13 +23,12 @@
       <div class="card-footer bg-white"><button class="btn btn-primary">Guardar</button></div>
     </form>
   </div>
-  <div class="col-lg-7">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-white fw-semibold">Todos los usuarios</div>
-      <div class="card-body">
-        <div class="row g-3">
+  <div class="col-xl-8">
+    <div class="users-panel">
+      <div class="fw-semibold mb-3">Todos los usuarios</div>
+      <div class="row g-4">
           {% for item in users %}
-          <div class="col-md-6 user-card-col" data-user-search="{{ item.get_full_name|default:item.username }} {{ item.username }} {{ item.email }}">
+          <div class="col-md-6 col-xxl-4 user-card-col" data-user-search="{{ item.get_full_name|default:item.username }} {{ item.username }} {{ item.email }}">
             <div class="user-card h-100 {% if not item.is_active or not item.work_profile.active %}user-card-inactive{% endif %}">
               <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
                 <div class="d-flex gap-3 align-items-start">
@@ -71,7 +70,6 @@
           {% empty %}
           <div class="col-12"><div class="compact-meta">No hay usuarios.</div></div>
           {% endfor %}
-        </div>
       </div>
     </div>
   </div>

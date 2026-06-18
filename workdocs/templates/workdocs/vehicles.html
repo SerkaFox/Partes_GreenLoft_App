@@ -1,0 +1,54 @@
+{% extends 'workdocs/base.html' %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-1">Vehículos</h1>
+    <div class="compact-meta">Gestión rápida de matrículas usadas en partes y perfiles.</div>
+  </div>
+  {% if editing %}<a class="btn btn-outline-primary" href="{% url 'workdocs_vehicles' %}">Nuevo vehículo</a>{% endif %}
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-4">
+    <form method="post" class="card border-0 shadow-sm">
+      {% csrf_token %}
+      <div class="card-header bg-white fw-semibold">{% if editing %}Editar vehículo{% else %}Crear vehículo{% endif %}</div>
+      <div class="card-body">
+        {% for field in form %}
+        <div class="mb-3">
+          {% if field.field.widget.input_type == 'checkbox' %}
+          <div class="form-check">{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+          {% else %}
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% endif %}
+          {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="card-footer bg-white d-flex flex-wrap gap-2">
+        <button class="btn btn-primary">Guardar</button>
+        {% if editing %}<a class="btn btn-outline-primary" href="{% url 'workdocs_vehicles' %}">Cancelar</a>{% endif %}
+      </div>
+    </form>
+  </div>
+  <div class="col-xl-8">
+    <div class="vehicles-grid">
+      {% for vehicle in vehicles %}
+      <a class="vehicle-card text-decoration-none {% if not vehicle.activo %}vehicle-card-inactive{% endif %}" href="{% url 'workdocs_vehicle_edit' vehicle.pk %}">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div>
+            <div class="fw-semibold vehicle-plate">{{ vehicle.matricula }}</div>
+            {% if vehicle.descripcion %}<div class="compact-meta">{{ vehicle.descripcion }}</div>{% endif %}
+          </div>
+          {% if vehicle.activo %}<span class="badge text-bg-success">Activo</span>{% else %}<span class="badge text-bg-secondary">Inactivo</span>{% endif %}
+        </div>
+        <div class="compact-meta mt-3">Orden: {{ vehicle.orden }}</div>
+      </a>
+      {% empty %}
+      <div class="compact-meta">No hay vehículos.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
