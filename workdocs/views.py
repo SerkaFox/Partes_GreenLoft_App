@@ -180,10 +180,19 @@ def technician_detail(request, pk):
 def task_list(request):
     qs = _visible_tasks(request.user)
     status = request.GET.get('status') or ''
+    documents = request.GET.get('documents') or ''
     technician = request.GET.get('technician') or ''
     q = request.GET.get('q') or ''
-    if status:
+    if status == 'pending':
+        qs = qs.exclude(status__in=[Task.STATUS_FINALIZADA, Task.STATUS_CANCELADA])
+    elif status == 'finished':
+        qs = qs.filter(status=Task.STATUS_FINALIZADA)
+    elif status == 'active':
+        qs = qs.filter(status__in=_active_statuses())
+    elif status:
         qs = qs.filter(status=status)
+    if documents:
+        qs = qs.filter(files__isnull=False).distinct()
     if technician and (is_admin(request.user) or is_manager(request.user)):
         qs = qs.filter(assigned_to_id=technician)
     if q:
@@ -192,7 +201,7 @@ def task_list(request):
         'tasks': qs[:300],
         'statuses': Task.STATUS_CHOICES,
         'technicians': _technicians(),
-        'filters': {'status': status, 'technician': technician, 'q': q},
+        'filters': {'status': status, 'documents': documents, 'technician': technician, 'q': q},
         'role': get_user_role(request.user),
     })
 

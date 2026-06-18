@@ -71,7 +71,7 @@ function initTaskEditors() {
     };
     marker.on('dragend', () => setPoint(marker.getLatLng()));
     map.on('click', event => setPoint(event.latlng));
-    editor.querySelector('.map-search-button').addEventListener('click', async () => {
+    const searchAddress = async () => {
       const query = addressInput.value.trim();
       if (!query) return;
       const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
@@ -80,6 +80,12 @@ function initTaskEditors() {
       if (data.length) {
         setPoint({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
       }
+    };
+    editor.querySelector('.map-search-button').addEventListener('click', searchAddress);
+    addressInput.addEventListener('keydown', event => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      searchAddress();
     });
     setTimeout(() => map.invalidateSize(), 250);
 

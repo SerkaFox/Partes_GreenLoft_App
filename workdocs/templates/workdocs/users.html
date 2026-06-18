@@ -1,6 +1,11 @@
 {% extends 'workdocs/base.html' %}
 {% block content %}
-<h1 class="h3 mb-3">Usuarios</h1>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Usuarios</h1>
+  <div class="user-page-search">
+    <input class="form-control" id="user-card-search" type="search" placeholder="Buscar usuario..." autocomplete="off">
+  </div>
+</div>
 <div class="row g-3">
   <div class="col-lg-5">
     <form method="post" enctype="multipart/form-data" class="card border-0 shadow-sm">
@@ -24,7 +29,7 @@
       <div class="card-body">
         <div class="row g-3">
           {% for item in users %}
-          <div class="col-md-6">
+          <div class="col-md-6 user-card-col" data-user-search="{{ item.get_full_name|default:item.username }} {{ item.username }} {{ item.email }}">
             <div class="user-card h-100 {% if not item.is_active or not item.work_profile.active %}user-card-inactive{% endif %}">
               <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
                 <div class="d-flex gap-3 align-items-start">
@@ -71,4 +76,17 @@
     </div>
   </div>
 </div>
+<script>
+(() => {
+  const input = document.getElementById('user-card-search');
+  if (!input) return;
+  const cards = [...document.querySelectorAll('.user-card-col')];
+  input.addEventListener('input', () => {
+    const query = input.value.trim().toLowerCase();
+    cards.forEach(card => {
+      card.classList.toggle('d-none', query && !card.dataset.userSearch.toLowerCase().includes(query));
+    });
+  });
+})();
+</script>
 {% endblock %}

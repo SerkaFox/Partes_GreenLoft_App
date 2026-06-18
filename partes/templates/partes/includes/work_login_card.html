@@ -67,6 +67,11 @@
   let role = localStorage.getItem('lastLoginRole') || 'admin_manager';
   let timer = null;
 
+  const memoryKeys = () => ({
+    username: `lastLoginUsername:${role}`,
+    displayName: `lastLoginDisplayName:${role}`,
+  });
+
   function showError(message) {
     error.textContent = message;
     error.classList.remove('d-none');
@@ -81,6 +86,7 @@
     role = nextRole;
     tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.loginRole === role));
     clearUser(false);
+    restoreUser();
   }
 
   function setUser(nextUsername, displayName, save) {
@@ -90,9 +96,10 @@
     selected.classList.remove('d-none');
     results.classList.add('d-none');
     if (save && remember.checked) {
+      const keys = memoryKeys();
       localStorage.setItem('lastLoginRole', role);
-      localStorage.setItem('lastLoginUsername', nextUsername);
-      localStorage.setItem('lastLoginDisplayName', displayName);
+      localStorage.setItem(keys.username, nextUsername);
+      localStorage.setItem(keys.displayName, displayName);
     }
   }
 
@@ -103,8 +110,18 @@
     selected.classList.add('d-none');
     results.classList.add('d-none');
     if (clearStorage) {
-      localStorage.removeItem('lastLoginUsername');
-      localStorage.removeItem('lastLoginDisplayName');
+      const keys = memoryKeys();
+      localStorage.removeItem(keys.username);
+      localStorage.removeItem(keys.displayName);
+    }
+  }
+
+  function restoreUser() {
+    const keys = memoryKeys();
+    const lastUsername = localStorage.getItem(keys.username);
+    const lastDisplayName = localStorage.getItem(keys.displayName);
+    if (lastUsername && lastDisplayName) {
+      setUser(lastUsername, lastDisplayName, false);
     }
   }
 
@@ -157,17 +174,13 @@
       return;
     }
     if (remember.checked) {
+      const keys = memoryKeys();
       localStorage.setItem('lastLoginRole', role);
-      localStorage.setItem('lastLoginUsername', username.value);
-      localStorage.setItem('lastLoginDisplayName', selectedName.textContent || search.value);
+      localStorage.setItem(keys.username, username.value);
+      localStorage.setItem(keys.displayName, selectedName.textContent || search.value);
     }
   });
 
   setRole(role);
-  const lastUsername = localStorage.getItem('lastLoginUsername');
-  const lastDisplayName = localStorage.getItem('lastLoginDisplayName');
-  if (lastUsername && lastDisplayName) {
-    setUser(lastUsername, lastDisplayName, false);
-  }
 })();
 </script>
