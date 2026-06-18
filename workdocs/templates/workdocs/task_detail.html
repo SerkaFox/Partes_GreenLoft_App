@@ -209,6 +209,15 @@
           </div>
           <audio controls class="w-100"><source src="{{ report.audio_file.url }}"></audio>
           <div class="compact-meta">{{ report.created_at|date:'d/m/Y H:i' }} · Transcripción: {{ report.get_transcript_status_display }}</div>
+          {% if report.transcript_status == 'done' %}
+          <div class="task-transcript mt-2">{{ report.transcript_text|linebreaksbr|default:'Sin texto transcrito.' }}</div>
+          {% elif report.transcript_status == 'processing' %}
+          <div class="compact-meta mt-2">Transcribiendo...</div>
+          {% elif report.transcript_status == 'error' %}
+          <div class="text-danger small mt-2">Error: {{ report.transcript_text|default:'No se pudo transcribir el audio.' }}</div>
+          {% else %}
+          <div class="compact-meta mt-2">Pendiente de transcripción.</div>
+          {% endif %}
         </div>
         {% endfor %}
       </div>

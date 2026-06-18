@@ -14,7 +14,6 @@ from partes.models import Vehiculo
 
 from .forms import CommentForm, ProfileForm, TaskFileForm, TaskForm, UserCreateForm, UserEditForm, VoiceReportForm
 from .models import Task, TaskEvent, TaskFile, TaskVoiceReport, UserProfile
-from .services.transcription import transcribe_audio
 from .utils import detect_file_type, get_user_role, is_admin, is_manager, is_technician
 
 User = get_user_model()
@@ -146,7 +145,6 @@ def _save_description_audio(task, user, uploaded):
         return None
     report = TaskVoiceReport.objects.create(task=task, technician=user, audio_file=uploaded)
     _add_event(task, user, TaskEvent.EVENT_AUDIO, 'Descripción de voz añadida.')
-    transcribe_audio(report.pk)
     return report
 
 
@@ -311,7 +309,6 @@ def task_detail(request, pk):
                 report.technician = request.user
                 report.save()
                 _add_event(task, request.user, TaskEvent.EVENT_AUDIO, 'Informe de voz subido.')
-                transcribe_audio(report.pk)
                 if _wants_json(request):
                     return JsonResponse({'ok': True, 'message': 'Audio subido correctamente.'})
                 messages.success(request, 'Audio subido correctamente.')

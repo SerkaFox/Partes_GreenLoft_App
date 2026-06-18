@@ -161,10 +161,12 @@ class TaskFile(models.Model):
 
 class TaskVoiceReport(models.Model):
     TRANSCRIPT_PENDING = 'pending'
+    TRANSCRIPT_PROCESSING = 'processing'
     TRANSCRIPT_DONE = 'done'
     TRANSCRIPT_ERROR = 'error'
     TRANSCRIPT_CHOICES = [
         (TRANSCRIPT_PENDING, 'Pendiente'),
+        (TRANSCRIPT_PROCESSING, 'Transcribiendo'),
         (TRANSCRIPT_DONE, 'Hecho'),
         (TRANSCRIPT_ERROR, 'Error'),
     ]
