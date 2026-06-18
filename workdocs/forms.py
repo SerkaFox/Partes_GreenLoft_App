@@ -1,9 +1,35 @@
+from io import BytesIO
+from pathlib import Path
+
 from django import forms
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
+from PIL import Image, ImageOps
 
 from .models import Task, TaskEvent, TaskFile, TaskVoiceReport, UserProfile
 
 User = get_user_model()
+
+
+def _resized_image(uploaded, max_size=(512, 512)):
+    if not uploaded:
+        return uploaded
+    image = Image.open(uploaded)
+    image = ImageOps.exif_transpose(image)
+    if image.mode not in ('RGB', 'L'):
+        background = Image.new('RGB', image.size, '#ffffff')
+        if image.mode in ('RGBA', 'LA'):
+            background.paste(image, mask=image.getchannel('A'))
+        else:
+            background.paste(image)
+        image = background
+    else:
+        image = image.convert('RGB')
+    image.thumbnail(max_size, Image.Resampling.LANCZOS)
+    output = BytesIO()
+    image.save(output, format='JPEG', quality=82, optimize=True)
+    name = f'{Path(uploaded.name).stem[:80]}.jpg'
+    return ContentFile(output.getvalue(), name=name)
 
 
 class BootstrapMixin:
@@ -149,7 +175,7 @@ class ProfileForm(BootstrapMixin, forms.Form):
         self.user.save()
         self.profile.description = self.cleaned_data.get('description', '')
         if self.cleaned_data.get('avatar'):
-            self.profile.avatar = self.cleaned_data['avatar']
+            self.profile.avatar = _resized_image(self.cleaned_data['avatar'])
         self.profile.save()
         return self.user
 
@@ -195,7 +221,7 @@ class UserCreateForm(BootstrapMixin, forms.Form):
             user=user,
             defaults={
                 'role': self.cleaned_data['role'],
-                'avatar': self.cleaned_data.get('avatar'),
+                'avatar': _resized_image(self.cleaned_data.get('avatar')),
                 'description': self.cleaned_data.get('description', ''),
                 'active': active,
                 'vehicle': self.cleaned_data.get('vehicle'),
@@ -261,6 +287,6 @@ class UserEditForm(BootstrapMixin, forms.Form):
         self.profile.active = active
         self.profile.vehicle = self.cleaned_data.get('vehicle')
         if self.cleaned_data.get('avatar'):
-            self.profile.avatar = self.cleaned_data['avatar']
+            self.profile.avatar = _resized_image(self.cleaned_data['avatar'])
         self.profile.save()
         return self.user

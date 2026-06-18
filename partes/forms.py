@@ -1,6 +1,32 @@
+from io import BytesIO
+from pathlib import Path
+
 from django import forms
+from django.core.files.base import ContentFile
+from PIL import Image, ImageOps
 
 from .models import ParteTrabajo, Proyecto, Tecnico, Vehiculo
+
+
+def _resized_image(uploaded, max_size=(900, 640)):
+    if not uploaded:
+        return uploaded
+    image = Image.open(uploaded)
+    image = ImageOps.exif_transpose(image)
+    if image.mode not in ('RGB', 'L'):
+        background = Image.new('RGB', image.size, '#ffffff')
+        if image.mode in ('RGBA', 'LA'):
+            background.paste(image, mask=image.getchannel('A'))
+        else:
+            background.paste(image)
+        image = background
+    else:
+        image = image.convert('RGB')
+    image.thumbnail(max_size, Image.Resampling.LANCZOS)
+    output = BytesIO()
+    image.save(output, format='JPEG', quality=84, optimize=True)
+    name = f'{Path(uploaded.name).stem[:80]}.jpg'
+    return ContentFile(output.getvalue(), name=name)
 
 
 class PanelLoginForm(forms.Form):
@@ -40,6 +66,9 @@ class VehiculoForm(forms.ModelForm):
             'orden': forms.NumberInput(attrs={'class': 'form-control'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
+    def clean_image(self):
+        return _resized_image(self.cleaned_data.get('image'))
 
 
 class ProyectoForm(forms.ModelForm):
