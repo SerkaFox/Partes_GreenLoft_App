@@ -3,10 +3,11 @@ from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .forms import CommentForm, TaskFileForm, TaskForm, UserCreateForm, VoiceReportForm, WorkPasswordChangeForm
 from .models import Task, TaskEvent, TaskFile, TaskVoiceReport, UserProfile
@@ -22,6 +23,35 @@ def _display_user(user):
 
 def _technicians():
     return User.objects.filter(work_profile__role=UserProfile.ROLE_TECHNICIAN, is_active=True).order_by('first_name', 'username')
+
+
+def _user_payload(user):
+    return {
+        'id': user.id,
+        'username': user.get_username(),
+        'full_name': _display_user(user),
+        'role': get_user_role(user),
+    }
+
+
+@require_GET
+def user_search(request):
+    q = (request.GET.get('q') or '').strip()
+    role = request.GET.get('role') or ''
+    if len(q) < 2:
+        return JsonResponse([], safe=False)
+    qs = User.objects.filter(is_active=True).select_related('work_profile')
+    if role == UserProfile.ROLE_TECHNICIAN:
+        qs = qs.filter(work_profile__role=UserProfile.ROLE_TECHNICIAN)
+    elif role in {'admin_manager', 'administration'}:
+        qs = qs.filter(Q(is_superuser=True) | Q(work_profile__role__in=[UserProfile.ROLE_ADMIN, UserProfile.ROLE_MANAGER]))
+    qs = qs.filter(
+        Q(username__icontains=q)
+        | Q(first_name__icontains=q)
+        | Q(last_name__icontains=q)
+        | Q(email__icontains=q)
+    ).order_by('first_name', 'last_name', 'username')[:12]
+    return JsonResponse([_user_payload(user) for user in qs], safe=False)
 
 
 def _visible_tasks(user):

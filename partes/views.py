@@ -10,12 +10,14 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.mail import EmailMessage
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 from reportlab.lib import colors
@@ -35,7 +37,18 @@ ALLOWED_PHOTO_TYPES = {'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'i
 
 
 def index(request):
+    return render(request, 'partes/home.html')
+
+
+def parte_form(request):
     return render(request, 'partes/index.html')
+
+
+def _safe_login_redirect(request):
+    next_url = request.GET.get('next') or request.POST.get('next') or ''
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return next_url
+    return reverse('workdocs_dashboard')
 
 
 @require_GET
@@ -407,15 +420,15 @@ def submit_parte(request):
 
 def panel_login(request):
     if request.user.is_authenticated:
-        return redirect('panel_dashboard')
+        return redirect(_safe_login_redirect(request))
     form = PanelLoginForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         user = authenticate(request, username=form.cleaned_data['username'], password=form.cleaned_data['password'])
         if user and user.is_active:
             login(request, user)
-            return redirect(request.GET.get('next') or 'panel_dashboard')
+            return redirect(_safe_login_redirect(request))
         messages.error(request, 'Usuario o contraseña incorrectos.')
-    return render(request, 'partes/panel/login.html', {'form': form})
+    return render(request, 'partes/panel/login.html', {'form': form, 'next': request.GET.get('next', '')})
 
 
 def panel_logout(request):

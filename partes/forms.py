@@ -4,8 +4,15 @@ from .models import ParteTrabajo, Proyecto, Tecnico, Vehiculo
 
 
 class PanelLoginForm(forms.Form):
-    username = forms.CharField(label='Usuario')
-    password = forms.CharField(label='Contraseña', widget=forms.PasswordInput)
+    username = forms.CharField(label='Usuario', widget=forms.HiddenInput)
+    password = forms.CharField(
+        label='Contraseña',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': 'Introduce tu contraseña',
+            'autocomplete': 'current-password',
+        }),
+    )
 
 
 class TecnicoForm(forms.ModelForm):

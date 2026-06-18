@@ -1,0 +1,38 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel de trabajo - GreenLoft</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { min-height: 100vh; background: #eef3f7; color: #172033; }
+    .home-shell { min-height: 100vh; display: grid; place-items: center; padding: 24px 12px; }
+    .home-grid { width: min(1100px, 100%); display: grid; gap: 20px; grid-template-columns: 1fr; align-items: stretch; }
+    .intro-panel { background: #145ea8; color: #fff; border-radius: 8px; padding: 28px; display: flex; flex-direction: column; justify-content: space-between; }
+    .intro-panel h1 { font-size: clamp(2rem, 5vw, 4rem); line-height: 1; margin: 0 0 16px; letter-spacing: 0; }
+    .intro-panel p { max-width: 580px; color: rgba(255,255,255,.86); font-size: 1.05rem; }
+    .quick-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+    .quick-actions .btn { border-radius: 8px; }
+    @media (min-width: 960px) { .home-grid { grid-template-columns: 1.1fr .9fr; } }
+  </style>
+</head>
+<body>
+<main class="home-shell">
+  <div class="home-grid">
+    <section class="intro-panel">
+      <div>
+        <h1>Panel de trabajo</h1>
+        <p>Accede para gestionar tareas, documentos e informes.</p>
+      </div>
+      <div class="quick-actions">
+        <a class="btn btn-light" href="{% url 'panel_login' %}?next=/trabajo/">Entrar al panel</a>
+        <a class="btn btn-outline-light" href="{% url 'parte_form' %}">Crear parte / informe</a>
+      </div>
+    </section>
+    {% include 'partes/includes/work_login_card.html' with next='/trabajo/' %}
+  </div>
+</main>
+</body>
+</html>
