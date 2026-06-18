@@ -14,7 +14,7 @@
       <div class="card-header fw-semibold">Tareas en curso</div>
       <div class="list-group list-group-flush">
         {% for task in tasks %}
-        <a class="list-group-item list-group-item-action task-active" href="{% url 'workdocs_task_detail' task.pk %}">
+        <a class="list-group-item list-group-item-action task-card task-active" href="{% url 'workdocs_task_detail' task.pk %}">
           <div class="d-flex justify-content-between gap-2">
             <div>
               <div class="fw-semibold task-title">{{ task.title }}</div>

@@ -25,6 +25,7 @@ class Tecnico(models.Model):
 class Vehiculo(models.Model):
     matricula = models.CharField(max_length=60, unique=True)
     descripcion = models.CharField(max_length=180, blank=True)
+    image = models.ImageField(upload_to='vehicles/', blank=True, null=True)
     activo = models.BooleanField(default=True)
     orden = models.PositiveIntegerField(default=0)
 

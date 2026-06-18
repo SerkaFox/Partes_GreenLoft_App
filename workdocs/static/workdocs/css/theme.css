@@ -86,6 +86,23 @@ body.login-theme::before {
 .list-group-item-action .task-title,
 .list-group-item-action:hover .task-title,
 .list-group-item-action:focus .task-title,
+.list-group-item-action:visited .task-title,
+.list-group-item-action:active .task-title,
+.task-card,
+.task-card:link,
+.task-card:visited,
+.task-card:active,
+.task-card:hover,
+.task-card:focus,
+.task-card .task-title,
+.task-card a,
+.task-card a:link,
+.task-card a:visited,
+.task-card a:active,
+.task-card:hover .task-title,
+.task-card:hover a,
+.task-card:focus .task-title,
+.task-card:focus a,
 a.card,
 a.card:hover,
 a.card:focus {
@@ -180,7 +197,7 @@ a.card:focus {
 }
 .vehicle-card {
   display: block;
-  min-height: 130px;
+  min-height: 150px;
   padding: 18px;
   border: 1px solid rgba(190, 235, 213, .4);
   border-radius: 8px;
@@ -203,6 +220,26 @@ a.card:focus {
 .vehicle-plate {
   color: #fff;
   font-size: 1.25rem;
+}
+.vehicle-search {
+  width: min(100%, 360px);
+}
+.vehicle-thumb {
+  width: 82px;
+  height: 82px;
+  border-radius: 8px;
+  border: 1px solid rgba(190, 235, 213, .36);
+  object-fit: cover;
+  background: rgba(73, 201, 133, .16);
+  color: #d9ffec;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.vehicle-thumb-initial {
+  font-size: 2rem;
+  font-weight: 800;
 }
 .user-description {
   color: var(--wl-text);

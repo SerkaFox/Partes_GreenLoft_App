@@ -22,7 +22,7 @@
       <div class="card-header bg-white fw-semibold">Tareas activas</div>
       <div class="list-group list-group-flush">
         {% for task in active_tasks %}
-        <a class="list-group-item list-group-item-action" href="{% url 'workdocs_task_detail' task.pk %}">
+        <a class="list-group-item list-group-item-action task-card" href="{% url 'workdocs_task_detail' task.pk %}">
           <div class="fw-semibold task-title">{{ task.title }}</div>
           <div class="compact-meta">{{ task.address|default:'Sin dirección' }}</div>
           <div class="compact-meta">Equipo: {% for technician in task.assigned_technicians %}{{ technician.get_full_name|default:technician.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</div>
@@ -39,7 +39,7 @@
       <div class="card-header bg-white fw-semibold">Finalizadas</div>
       <div class="list-group list-group-flush">
         {% for task in finished_tasks %}
-        <a class="list-group-item list-group-item-action" href="{% url 'workdocs_task_detail' task.pk %}">
+        <a class="list-group-item list-group-item-action task-card" href="{% url 'workdocs_task_detail' task.pk %}">
           <div class="fw-semibold task-title">{{ task.title }}</div>
           <div class="compact-meta">{{ task.address|default:'Sin dirección' }}</div>
           <div class="compact-meta">Equipo: {% for technician in task.assigned_technicians %}{{ technician.get_full_name|default:technician.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</div>

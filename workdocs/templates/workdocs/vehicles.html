@@ -10,7 +10,7 @@
 
 <div class="row g-4">
   <div class="col-xl-4">
-    <form method="post" class="card border-0 shadow-sm">
+    <form method="post" enctype="multipart/form-data" class="card border-0 shadow-sm">
       {% csrf_token %}
       <div class="card-header bg-white fw-semibold">{% if editing %}Editar vehículo{% else %}Crear vehículo{% endif %}</div>
       <div class="card-body">
@@ -33,22 +33,48 @@
     </form>
   </div>
   <div class="col-xl-8">
+    <div class="d-flex justify-content-end mb-3">
+      <input class="form-control vehicle-search" id="vehicle-search" type="search" placeholder="Buscar vehículo..." autocomplete="off">
+    </div>
     <div class="vehicles-grid">
       {% for vehicle in vehicles %}
-      <a class="vehicle-card text-decoration-none {% if not vehicle.activo %}vehicle-card-inactive{% endif %}" href="{% url 'workdocs_vehicle_edit' vehicle.pk %}">
-        <div class="d-flex justify-content-between align-items-start gap-3">
-          <div>
-            <div class="fw-semibold vehicle-plate">{{ vehicle.matricula }}</div>
-            {% if vehicle.descripcion %}<div class="compact-meta">{{ vehicle.descripcion }}</div>{% endif %}
+      <div class="vehicle-card {% if not vehicle.activo %}vehicle-card-inactive{% endif %}" data-vehicle-search="{{ vehicle.matricula }} {{ vehicle.descripcion }}">
+        <div class="d-flex gap-3 align-items-start">
+          {% if vehicle.image %}
+          <img class="vehicle-thumb" src="{{ vehicle.image.url }}" alt="{{ vehicle.matricula }}">
+          {% else %}
+          <div class="vehicle-thumb vehicle-thumb-initial">{{ vehicle.matricula|slice:":1"|upper }}</div>
+          {% endif %}
+          <div class="flex-grow-1">
+            <div class="d-flex justify-content-between align-items-start gap-3">
+              <div>
+                <div class="fw-semibold vehicle-plate">{{ vehicle.matricula }}</div>
+                {% if vehicle.descripcion %}<div class="compact-meta">{{ vehicle.descripcion }}</div>{% endif %}
+              </div>
+              {% if vehicle.activo %}<span class="badge text-bg-success">Activo</span>{% else %}<span class="badge text-bg-secondary">Inactivo</span>{% endif %}
+            </div>
+            <div class="compact-meta mt-3">Orden: {{ vehicle.orden }}</div>
+            <a class="btn btn-sm btn-outline-primary mt-3" href="{% url 'workdocs_vehicle_edit' vehicle.pk %}">Editar</a>
           </div>
-          {% if vehicle.activo %}<span class="badge text-bg-success">Activo</span>{% else %}<span class="badge text-bg-secondary">Inactivo</span>{% endif %}
         </div>
-        <div class="compact-meta mt-3">Orden: {{ vehicle.orden }}</div>
-      </a>
+      </div>
       {% empty %}
       <div class="compact-meta">No hay vehículos.</div>
       {% endfor %}
     </div>
   </div>
 </div>
+<script>
+(() => {
+  const input = document.getElementById('vehicle-search');
+  if (!input) return;
+  const cards = [...document.querySelectorAll('[data-vehicle-search]')];
+  input.addEventListener('input', () => {
+    const query = input.value.trim().toLowerCase();
+    cards.forEach(card => {
+      card.classList.toggle('d-none', query && !card.dataset.vehicleSearch.toLowerCase().includes(query));
+    });
+  });
+})();
+</script>
 {% endblock %}

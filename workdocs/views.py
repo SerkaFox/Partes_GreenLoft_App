@@ -425,7 +425,7 @@ def vehicles(request, pk=None):
     if not _can_manage_users(request.user):
         raise PermissionDenied
     vehicle = get_object_or_404(Vehiculo, pk=pk) if pk else None
-    form = VehiculoForm(request.POST or None, instance=vehicle)
+    form = VehiculoForm(request.POST or None, request.FILES or None, instance=vehicle)
     if request.method == 'POST' and form.is_valid():
         form.save()
         messages.success(request, 'Vehículo guardado correctamente.')
