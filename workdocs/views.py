@@ -191,15 +191,19 @@ def _chat_items(task, viewer, unread_event_ids=None):
         _ensure_profile(event.user)
         if event.parent_event_id:
             _ensure_profile(event.parent_event.user)
+        is_own = event.user_id == viewer.id
+        read_by_others = is_own and any(read.user_id != viewer.id for read in event.reads.all())
         event.user_url = _task_user_url(event.user, viewer)
         event.is_unread = event.id in unread_event_ids
-        event.read_by_others = event.user_id == viewer.id and any(read.user_id != viewer.id for read in event.reads.all())
+        event.read_by_others = read_by_others
         items.append({
             'kind': 'comment',
             'created_at': event.created_at,
             'user': event.user,
             'user_url': event.user_url,
             'event': event,
+            'is_own': is_own,
+            'read_by_others': read_by_others,
         })
     reports = task.voice_reports.filter(report_type=TaskVoiceReport.TYPE_REPORT).select_related('technician')
     for report in reports:
