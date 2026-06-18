@@ -1,0 +1,91 @@
+<div class="task-comment {% if item.kind == 'comment' and item.event.is_unread %}task-comment-unread{% endif %}" id="{% if item.kind == 'comment' %}comment-{{ item.event.pk }}{% elif item.kind == 'voice' %}voice-{{ item.report.pk }}{% else %}file-{{ item.file.pk }}{% endif %}">
+  {% if item.kind == 'comment' and item.event.parent_event %}
+  <a class="comment-reply-context text-decoration-none" href="#comment-{{ item.event.parent_event.pk }}">
+    Respuesta a {{ item.event.parent_event.user.get_full_name|default:item.event.parent_event.user.username }}: {{ item.event.parent_event.comment|truncatechars:90 }}
+  </a>
+  {% endif %}
+  <div class="d-flex justify-content-between gap-2 align-items-start">
+    <div class="d-flex gap-2 align-items-center min-w-0">
+      {% if item.user.work_profile.avatar %}
+      <img class="avatar avatar-sm" src="{{ item.user.work_profile.avatar.url }}" alt="{{ item.user.get_full_name|default:item.user.username }}">
+      {% else %}
+      {% firstof item.user.first_name item.user.username as comment_avatar_seed %}
+      <span class="avatar avatar-sm avatar-initials">{{ comment_avatar_seed|slice:":1"|upper }}</span>
+      {% endif %}
+      <div class="min-w-0">
+        {% if item.user_url %}
+        <a class="fw-semibold text-white text-decoration-none" href="{{ item.user_url }}">{{ item.user.get_full_name|default:item.user.username }}</a>
+        {% else %}
+        <div class="fw-semibold">{{ item.user.get_full_name|default:item.user.username }}</div>
+        {% endif %}
+        <div class="compact-meta">
+          {% if item.user.is_superuser %}Admin{% else %}{{ item.user.work_profile.get_role_display|default:'Usuario' }}{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="compact-meta text-nowrap">{{ item.created_at|date:'d/m/Y H:i' }}</div>
+  </div>
+  {% if item.kind == 'comment' %}
+  <div class="mt-2 chat-message-text">
+    {{ item.event.comment|linebreaksbr }}
+    {% if item.is_own %}
+    <span class="read-checks" title="{% if item.read_by_others %}Leído{% else %}Enviado{% endif %}">{% if item.read_by_others %}✓✓{% else %}✓{% endif %}</span>
+    {% endif %}
+  </div>
+  <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+    <button class="btn btn-sm btn-outline-primary comment-reply-button" type="button" data-comment-id="{{ item.event.pk }}" data-comment-author="{{ item.user.get_full_name|default:item.user.username }}" data-comment-text="{{ item.event.comment|truncatechars:90 }}">Responder</button>
+    <span class="comment-reaction-list">
+      {% for emoji,count in item.event.reactions.items %}
+      <span class="comment-reaction-count">{{ emoji }} {{ count }}</span>
+      {% endfor %}
+    </span>
+    <form class="d-inline-flex gap-1 comment-reactions" method="post" action="{% url 'workdocs_task_comment_reaction' task.pk item.event.pk %}">
+      {% csrf_token %}
+      <button class="emoji-button" name="emoji" value="👍" type="submit">👍</button>
+      <button class="emoji-button" name="emoji" value="✅" type="submit">✅</button>
+      <button class="emoji-button" name="emoji" value="👀" type="submit">👀</button>
+      <button class="emoji-button" name="emoji" value="🙏" type="submit">🙏</button>
+    </form>
+  </div>
+  {% elif item.kind == 'voice' %}
+  <div class="chat-voice-message mt-2">
+    <audio class="chat-audio" controls preload="metadata"><source src="{{ item.report.audio_file.url }}"></audio>
+    <div class="chat-transcript">
+      <div class="compact-meta">Transcripción: {{ item.report.get_transcript_status_display }}</div>
+      {% if item.report.transcript_status == 'done' %}
+      <div>{{ item.report.transcript_text|linebreaksbr|default:'Sin texto transcrito.' }}</div>
+      {% elif item.report.transcript_status == 'processing' %}
+      <div class="compact-meta">Transcribiendo...</div>
+      {% elif item.report.transcript_status == 'error' %}
+      <div class="text-danger small">{{ item.report.transcript_text|default:'No se pudo transcribir el audio.' }}</div>
+      {% else %}
+      <div class="compact-meta">Transcripción pendiente</div>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="chat-file-message mt-2">
+    {% if item.file.is_image %}
+    <a href="{{ item.file.file.url }}" target="_blank" rel="noopener"><img class="task-thumb" src="{{ item.file.file.url }}" alt="{{ item.file.original_name }}"></a>
+    {% elif item.file.is_video %}
+    <video controls class="w-100 task-thumb"><source src="{{ item.file.file.url }}"></video>
+    {% elif item.file.is_audio %}
+    <audio class="chat-audio" controls preload="metadata"><source src="{{ item.file.file.url }}"></audio>
+    {% elif item.file.file_type == 'pdf' %}
+    <div class="p-3 text-center bg-light rounded">PDF</div>
+    {% else %}
+    <div class="p-3 text-center bg-light rounded">Documento</div>
+    {% endif %}
+    <div class="small fw-semibold mt-2 text-break">{{ item.file.original_name|default:item.file.file.name }}</div>
+    {% if item.file.comment %}<div class="small mt-1">{{ item.file.comment }}</div>{% endif %}
+    <div class="d-flex flex-wrap gap-2 mt-2">
+      {% if item.file.file_type == 'pdf' %}
+      <button class="btn btn-sm btn-outline-primary pdf-preview-button" type="button" data-pdf-url="{{ item.file.file.url }}" data-pdf-title="{{ item.file.original_name|default:item.file.file.name }}">Vista previa</button>
+      {% elif not item.file.is_image and not item.file.is_audio and not item.file.is_video %}
+      <span class="compact-meta align-self-center">Vista previa no disponible</span>
+      {% endif %}
+      <a class="btn btn-sm btn-outline-primary" href="{{ item.file.file.url }}" download>Descargar</a>
+    </div>
+  </div>
+  {% endif %}
+</div>

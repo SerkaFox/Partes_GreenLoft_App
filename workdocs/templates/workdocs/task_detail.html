@@ -70,103 +70,13 @@
     <div class="card border-0 shadow-sm mb-3" id="task-comments">
       <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
         <span>Chat</span>
-        {% if chat_items %}<span class="badge text-bg-secondary">{{ chat_items|length }}</span>{% endif %}
+        <span class="badge text-bg-secondary {% if not chat_items %}d-none{% endif %}" id="chat-count-badge">{{ chat_items|length }}</span>
       </div>
-      <div class="card-body task-comments {% if chat_items|length > 3 %}task-comments-scroll{% endif %}">
+      <div class="card-body task-comments {% if chat_items|length > 3 %}task-comments-scroll{% endif %}" id="chat-items">
         {% for item in chat_items %}
-        <div class="task-comment {% if item.kind == 'comment' and item.event.is_unread %}task-comment-unread{% endif %}" id="{% if item.kind == 'comment' %}comment-{{ item.event.pk }}{% elif item.kind == 'voice' %}voice-{{ item.report.pk }}{% else %}file-{{ item.file.pk }}{% endif %}">
-          {% if item.kind == 'comment' and item.event.parent_event %}
-          <a class="comment-reply-context text-decoration-none" href="#comment-{{ item.event.parent_event.pk }}">
-            Respuesta a {{ item.event.parent_event.user.get_full_name|default:item.event.parent_event.user.username }}: {{ item.event.parent_event.comment|truncatechars:90 }}
-          </a>
-          {% endif %}
-          <div class="d-flex justify-content-between gap-2 align-items-start">
-            <div class="d-flex gap-2 align-items-center min-w-0">
-              {% if item.user.work_profile.avatar %}
-              <img class="avatar avatar-sm" src="{{ item.user.work_profile.avatar.url }}" alt="{{ item.user.get_full_name|default:item.user.username }}">
-              {% else %}
-              {% firstof item.user.first_name item.user.username as comment_avatar_seed %}
-              <span class="avatar avatar-sm avatar-initials">{{ comment_avatar_seed|slice:":1"|upper }}</span>
-              {% endif %}
-              <div class="min-w-0">
-                {% if item.user_url %}
-                <a class="fw-semibold text-white text-decoration-none" href="{{ item.user_url }}">{{ item.user.get_full_name|default:item.user.username }}</a>
-                {% else %}
-                <div class="fw-semibold">{{ item.user.get_full_name|default:item.user.username }}</div>
-                {% endif %}
-                <div class="compact-meta">
-                  {% if item.user.is_superuser %}Admin{% else %}{{ item.user.work_profile.get_role_display|default:'Usuario' }}{% endif %}
-                </div>
-              </div>
-            </div>
-            <div class="compact-meta text-nowrap">
-              {{ item.created_at|date:'d/m/Y H:i' }}
-            </div>
-          </div>
-          {% if item.kind == 'comment' %}
-          <div class="mt-2 chat-message-text">
-            {{ item.event.comment|linebreaksbr }}
-            {% if item.is_own %}
-            <span class="read-checks" title="{% if item.read_by_others %}Leído{% else %}Enviado{% endif %}">{% if item.read_by_others %}✓✓{% else %}✓{% endif %}</span>
-            {% endif %}
-          </div>
-          <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-            <button class="btn btn-sm btn-outline-primary comment-reply-button" type="button" data-comment-id="{{ item.event.pk }}" data-comment-author="{{ item.user.get_full_name|default:item.user.username }}" data-comment-text="{{ item.event.comment|truncatechars:90 }}">Responder</button>
-            {% for emoji,count in item.event.reactions.items %}
-            <span class="comment-reaction-count">{{ emoji }} {{ count }}</span>
-            {% endfor %}
-            <form class="d-inline-flex gap-1 comment-reactions" method="post" action="{% url 'workdocs_task_comment_reaction' task.pk item.event.pk %}">
-              {% csrf_token %}
-              <button class="emoji-button" name="emoji" value="👍" type="submit">👍</button>
-              <button class="emoji-button" name="emoji" value="✅" type="submit">✅</button>
-              <button class="emoji-button" name="emoji" value="👀" type="submit">👀</button>
-              <button class="emoji-button" name="emoji" value="🙏" type="submit">🙏</button>
-            </form>
-          </div>
-          {% elif item.kind == 'voice' %}
-          <div class="chat-voice-message mt-2">
-            <audio class="chat-audio" controls preload="metadata"><source src="{{ item.report.audio_file.url }}"></audio>
-            <div class="chat-transcript">
-              <div class="compact-meta">Transcripción: {{ item.report.get_transcript_status_display }}</div>
-              {% if item.report.transcript_status == 'done' %}
-              <div>{{ item.report.transcript_text|linebreaksbr|default:'Sin texto transcrito.' }}</div>
-              {% elif item.report.transcript_status == 'processing' %}
-              <div class="compact-meta">Transcribiendo...</div>
-              {% elif item.report.transcript_status == 'error' %}
-              <div class="text-danger small">{{ item.report.transcript_text|default:'No se pudo transcribir el audio.' }}</div>
-              {% else %}
-              <div class="compact-meta">Transcripción pendiente</div>
-              {% endif %}
-            </div>
-          </div>
-          {% else %}
-          <div class="chat-file-message mt-2">
-            {% if item.file.is_image %}
-            <a href="{{ item.file.file.url }}" target="_blank" rel="noopener"><img class="task-thumb" src="{{ item.file.file.url }}" alt="{{ item.file.original_name }}"></a>
-            {% elif item.file.is_video %}
-            <video controls class="w-100 task-thumb"><source src="{{ item.file.file.url }}"></video>
-            {% elif item.file.is_audio %}
-            <audio class="chat-audio" controls preload="metadata"><source src="{{ item.file.file.url }}"></audio>
-            {% elif item.file.file_type == 'pdf' %}
-            <div class="p-3 text-center bg-light rounded">PDF</div>
-            {% else %}
-            <div class="p-3 text-center bg-light rounded">Documento</div>
-            {% endif %}
-            <div class="small fw-semibold mt-2 text-break">{{ item.file.original_name|default:item.file.file.name }}</div>
-            {% if item.file.comment %}<div class="small mt-1">{{ item.file.comment }}</div>{% endif %}
-            <div class="d-flex flex-wrap gap-2 mt-2">
-              {% if item.file.file_type == 'pdf' %}
-              <button class="btn btn-sm btn-outline-primary pdf-preview-button" type="button" data-pdf-url="{{ item.file.file.url }}" data-pdf-title="{{ item.file.original_name|default:item.file.file.name }}">Vista previa</button>
-              {% elif not item.file.is_image and not item.file.is_audio and not item.file.is_video %}
-              <span class="compact-meta align-self-center">Vista previa no disponible</span>
-              {% endif %}
-              <a class="btn btn-sm btn-outline-primary" href="{{ item.file.file.url }}" download>Descargar</a>
-            </div>
-          </div>
-          {% endif %}
-        </div>
+        {% include 'workdocs/partials_chat_item.html' with item=item %}
         {% empty %}
-        <div class="compact-meta">No hay mensajes todavía.</div>
+        <div class="compact-meta chat-empty-state">No hay mensajes todavía.</div>
         {% endfor %}
       </div>
       <form method="post" enctype="multipart/form-data" id="chat-composer-form">
@@ -277,36 +187,11 @@
         </div>
       </div>
       <div class="card-body">
-        <div class="row g-3">
+        <div class="row g-3" id="task-files-list">
           {% for item in files %}
-          <div class="col-12 task-file-item" data-uploader-role="{% if item.uploaded_by.is_superuser %}admin{% elif item.uploaded_by.work_profile.role == 'technician' %}technician{% else %}admin{% endif %}">
-            <div class="border rounded p-2 h-100 bg-white">
-              {% if item.is_image %}
-              <a href="{{ item.file.url }}" target="_blank" rel="noopener"><img class="task-thumb" src="{{ item.file.url }}" alt="{{ item.original_name }}"></a>
-              {% elif item.is_audio %}
-              <audio controls class="w-100"><source src="{{ item.file.url }}"></audio>
-              {% elif item.is_video %}
-              <video controls class="w-100 task-thumb"><source src="{{ item.file.url }}"></video>
-              {% elif item.file_type == 'pdf' %}
-              <div class="p-3 text-center bg-light rounded">PDF</div>
-              {% else %}
-              <div class="p-3 text-center bg-light rounded">Documento</div>
-              {% endif %}
-              <div class="small fw-semibold mt-2 text-break">{{ item.original_name|default:item.file.name }}</div>
-              <div class="compact-meta">{{ item.get_file_type_display }} · {{ item.uploaded_by.get_full_name|default:item.uploaded_by.username }}</div>
-              {% if item.comment %}<div class="small mt-1">{{ item.comment }}</div>{% endif %}
-              <div class="d-flex flex-wrap gap-2 mt-2">
-                {% if item.file_type == 'pdf' %}
-                <button class="btn btn-sm btn-outline-primary pdf-preview-button" type="button" data-pdf-url="{{ item.file.url }}" data-pdf-title="{{ item.original_name|default:item.file.name }}">Vista previa</button>
-                {% elif not item.is_image and not item.is_audio and not item.is_video %}
-                <span class="compact-meta align-self-center">Vista previa no disponible</span>
-                {% endif %}
-                <a class="btn btn-sm btn-outline-primary" href="{{ item.file.url }}" download>Descargar</a>
-              </div>
-            </div>
-          </div>
+          {% include 'workdocs/partials_task_file_card.html' with item=item %}
           {% empty %}
-          <div class="col-12 compact-meta">No hay archivos.</div>
+          <div class="col-12 compact-meta task-files-empty">No hay archivos.</div>
           {% endfor %}
         </div>
       </div>
@@ -372,14 +257,13 @@ document.addEventListener('DOMContentLoaded', () => {
     pdfFrame.removeAttribute('src');
     document.body.classList.remove('pdf-preview-open');
   };
-  document.querySelectorAll('.pdf-preview-button').forEach(button => {
-    button.addEventListener('click', () => {
-      if (!pdfOverlay || !pdfFrame || !pdfTitle) return;
-      pdfTitle.textContent = button.dataset.pdfTitle || 'Vista previa';
-      pdfFrame.src = button.dataset.pdfUrl;
-      pdfOverlay.hidden = false;
-      document.body.classList.add('pdf-preview-open');
-    });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('.pdf-preview-button');
+    if (!button || !pdfOverlay || !pdfFrame || !pdfTitle) return;
+    pdfTitle.textContent = button.dataset.pdfTitle || 'Vista previa';
+    pdfFrame.src = button.dataset.pdfUrl;
+    pdfOverlay.hidden = false;
+    document.body.classList.add('pdf-preview-open');
   });
   pdfClose?.addEventListener('click', closePdf);
   pdfOverlay?.addEventListener('click', event => {
@@ -399,10 +283,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 80);
     });
   });
-  document.querySelectorAll('.task-comments-scroll').forEach(box => {
-    box.scrollTop = box.scrollHeight;
-  });
-
   const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
   const autosaveForm = document.getElementById('task-autosave-form');
   const autosaveStatus = document.getElementById('task-autosave-status');
@@ -431,7 +311,44 @@ document.addEventListener('DOMContentLoaded', () => {
       return false;
     }
     if (statusEl) statusEl.textContent = successText;
-    return true;
+    return data || {ok: true};
+  };
+  const updateChatBadge = amount => {
+    const chatBadge = document.getElementById('chat-count-badge');
+    if (!chatBadge) return;
+    const current = parseInt(chatBadge.textContent || '0', 10) || 0;
+    chatBadge.textContent = String(current + amount);
+    chatBadge.classList.remove('d-none');
+  };
+  const appendChatItems = htmlList => {
+    const chatItems = document.getElementById('chat-items');
+    if (!chatItems || !htmlList?.length) return;
+    chatItems.querySelector('.chat-empty-state')?.remove();
+    htmlList.forEach(html => {
+      const template = document.createElement('template');
+      template.innerHTML = html.trim();
+      chatItems.appendChild(template.content);
+    });
+    chatItems.classList.toggle('task-comments-scroll', chatItems.querySelectorAll('.task-comment').length > 3);
+    updateChatBadge(htmlList.length);
+  };
+  const applyFileFilter = () => {
+    const active = document.querySelector('[data-file-filter].active');
+    const filter = active?.dataset.fileFilter || 'all';
+    document.querySelectorAll('.task-file-item').forEach(item => {
+      item.classList.toggle('d-none', filter !== 'all' && item.dataset.uploaderRole !== filter);
+    });
+  };
+  const appendTaskFiles = htmlList => {
+    const list = document.getElementById('task-files-list');
+    if (!list || !htmlList?.length) return;
+    list.querySelector('.task-files-empty')?.remove();
+    htmlList.forEach(html => {
+      const template = document.createElement('template');
+      template.innerHTML = html.trim();
+      list.prepend(template.content);
+    });
+    applyFileFilter();
   };
 
   if (autosaveForm) {
@@ -459,19 +376,37 @@ document.addEventListener('DOMContentLoaded', () => {
   fileInputs?.forEach(fileInput => {
     fileInput.addEventListener('change', async () => {
       if (!fileInput.files.length) return;
-      const ok = await submitForm(fileForm, fileStatus, 'Archivo subido. Actualizando lista...', 'No se pudo subir el archivo', 'Subiendo archivo...');
-      if (ok) window.location.reload();
+      const data = await submitForm(fileForm, fileStatus, 'Archivo subido.', 'No se pudo subir el archivo', 'Subiendo archivo...');
+      if (!data) return;
+      appendChatItems(data.item_html || []);
+      appendTaskFiles(data.file_html || []);
+      fileInputs.forEach(input => { input.value = ''; });
     });
   });
 
   document.querySelectorAll('[data-file-filter]').forEach(button => {
     button.addEventListener('click', () => {
-      const filter = button.dataset.fileFilter;
       document.querySelectorAll('[data-file-filter]').forEach(item => item.classList.toggle('active', item === button));
-      document.querySelectorAll('.task-file-item').forEach(item => {
-        item.classList.toggle('d-none', filter !== 'all' && item.dataset.uploaderRole !== filter);
-      });
+      applyFileFilter();
     });
+  });
+  document.getElementById('task-files-list')?.addEventListener('submit', async event => {
+    const form = event.target.closest('.task-file-delete-form');
+    if (!form) return;
+    event.preventDefault();
+    const response = await fetch(form.action, {
+      method: 'POST',
+      body: new FormData(form),
+      credentials: 'same-origin',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(csrf ? {'X-CSRFToken': csrf} : {}),
+      },
+    });
+    const data = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
+    if (!response.ok || !data?.ok) return;
+    document.getElementById(`task-file-${data.file_id}`)?.remove();
+    document.getElementById(`file-${data.file_id}`)?.remove();
   });
 
   const replyTo = document.getElementById('comment-reply-to');
@@ -484,42 +419,92 @@ document.addEventListener('DOMContentLoaded', () => {
   const chatFileInput = document.getElementById('chat-file-input');
   const voiceInput = document.getElementById('id_audio_file');
   const voiceStatus = document.getElementById('record-status');
-  chatForm?.addEventListener('submit', () => {
-    if (chatAction) chatAction.value = 'comment';
+  const chatItems = document.getElementById('chat-items');
+  const clearReply = () => {
+    if (replyTo) replyTo.value = '';
+    replyPreview?.classList.add('d-none');
+  };
+  const submitChat = async (action, pendingText, failureText) => {
+    if (!chatForm || !chatAction) return false;
+    chatAction.value = action;
+    if (voiceStatus) voiceStatus.textContent = pendingText || '';
+    const response = await fetch(chatForm.getAttribute('action') || window.location.href, {
+      method: 'POST',
+      body: new FormData(chatForm),
+      credentials: 'same-origin',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(csrf ? {'X-CSRFToken': csrf} : {}),
+      },
+    });
+    const data = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
+    if (!response.ok || !data?.ok) {
+      if (voiceStatus) voiceStatus.textContent = failureText || 'No se pudo enviar.';
+      return false;
+    }
+    appendChatItems(data.item_html || []);
+    appendTaskFiles(data.file_html || []);
+    if (voiceStatus) voiceStatus.textContent = '';
+    return true;
+  };
+  chatForm?.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!commentTextarea?.value.trim()) return;
+    const ok = await submitChat('comment', '', 'No se pudo enviar el mensaje.');
+    if (!ok) return;
+    commentTextarea.value = '';
+    clearReply();
   });
   commentTextarea?.addEventListener('keydown', event => {
     if (event.key !== 'Enter' || event.shiftKey) return;
     event.preventDefault();
     if (!commentTextarea.value.trim()) return;
-    if (chatAction) chatAction.value = 'comment';
     chatForm?.requestSubmit();
   });
   chatFileInput?.addEventListener('change', async () => {
     if (!chatFileInput.files.length || !chatForm) return;
-    if (chatAction) chatAction.value = 'upload_files';
-    const ok = await submitForm(chatForm, voiceStatus, 'Archivo subido. Actualizando lista...', 'No se pudo subir el archivo', 'Subiendo archivo...');
-    if (ok) window.location.reload();
+    const ok = await submitChat('upload_files', 'Subiendo archivo...', 'No se pudo subir el archivo.');
+    if (ok) chatFileInput.value = '';
   });
-  document.querySelectorAll('.comment-reply-button').forEach(button => {
-    button.addEventListener('click', () => {
-      if (!replyTo || !replyPreview || !replyAuthor || !replyText) return;
-      replyTo.value = button.dataset.commentId;
-      replyAuthor.textContent = button.dataset.commentAuthor || '';
-      replyText.textContent = button.dataset.commentText || '';
-      replyPreview.classList.remove('d-none');
-      commentTextarea?.focus();
+  chatItems?.addEventListener('click', event => {
+    const button = event.target.closest('.comment-reply-button');
+    if (!button || !replyTo || !replyPreview || !replyAuthor || !replyText) return;
+    replyTo.value = button.dataset.commentId;
+    replyAuthor.textContent = button.dataset.commentAuthor || '';
+    replyText.textContent = button.dataset.commentText || '';
+    replyPreview.classList.remove('d-none');
+    commentTextarea?.focus();
+  });
+  document.getElementById('comment-reply-clear')?.addEventListener('click', clearReply);
+  chatItems?.addEventListener('submit', async event => {
+    const form = event.target.closest('.comment-reactions');
+    if (!form) return;
+    event.preventDefault();
+    const submitter = event.submitter;
+    const data = new FormData(form);
+    if (submitter?.name) data.set(submitter.name, submitter.value);
+    const response = await fetch(form.action, {
+      method: 'POST',
+      body: data,
+      credentials: 'same-origin',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(csrf ? {'X-CSRFToken': csrf} : {}),
+      },
     });
-  });
-  document.getElementById('comment-reply-clear')?.addEventListener('click', () => {
-    if (replyTo) replyTo.value = '';
-    replyPreview?.classList.add('d-none');
+    const result = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
+    if (!response.ok || !result?.ok) return;
+    const list = form.closest('.task-comment')?.querySelector('.comment-reaction-list');
+    if (!list) return;
+    list.innerHTML = Object.entries(result.reactions || {})
+      .map(([emoji, count]) => `<span class="comment-reaction-count">${emoji} ${count}</span>`)
+      .join('');
   });
 
   voiceInput?.addEventListener('change', async () => {
     if (!voiceInput.files.length) return;
-    if (chatAction) chatAction.value = 'voice';
-    const ok = await submitForm(chatForm, voiceStatus, 'Audio subido. Actualizando lista...', 'No se pudo subir el audio', 'Subiendo audio...');
-    if (ok) window.location.reload();
+    const ok = await submitChat('voice', 'Subiendo audio...', 'No se pudo subir el audio.');
+    if (ok) voiceInput.value = '';
   });
 });
 </script>

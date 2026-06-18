@@ -1,0 +1,32 @@
+<div class="col-12 task-file-item" id="task-file-{{ item.pk }}" data-uploader-role="{% if item.uploaded_by.is_superuser %}admin{% elif item.uploaded_by.work_profile.role == 'technician' %}technician{% else %}admin{% endif %}">
+  <div class="border rounded p-2 h-100 bg-white">
+    {% if item.is_image %}
+    <a href="{{ item.file.url }}" target="_blank" rel="noopener"><img class="task-thumb" src="{{ item.file.url }}" alt="{{ item.original_name }}"></a>
+    {% elif item.is_audio %}
+    <audio controls class="w-100"><source src="{{ item.file.url }}"></audio>
+    {% elif item.is_video %}
+    <video controls class="w-100 task-thumb"><source src="{{ item.file.url }}"></video>
+    {% elif item.file_type == 'pdf' %}
+    <div class="p-3 text-center bg-light rounded">PDF</div>
+    {% else %}
+    <div class="p-3 text-center bg-light rounded">Documento</div>
+    {% endif %}
+    <div class="small fw-semibold mt-2 text-break">{{ item.original_name|default:item.file.name }}</div>
+    <div class="compact-meta">{{ item.get_file_type_display }} · {{ item.uploaded_by.get_full_name|default:item.uploaded_by.username }}</div>
+    {% if item.comment %}<div class="small mt-1">{{ item.comment }}</div>{% endif %}
+    <div class="d-flex flex-wrap gap-2 mt-2">
+      {% if item.file_type == 'pdf' %}
+      <button class="btn btn-sm btn-outline-primary pdf-preview-button" type="button" data-pdf-url="{{ item.file.url }}" data-pdf-title="{{ item.original_name|default:item.file.name }}">Vista previa</button>
+      {% elif not item.is_image and not item.is_audio and not item.is_video %}
+      <span class="compact-meta align-self-center">Vista previa no disponible</span>
+      {% endif %}
+      <a class="btn btn-sm btn-outline-primary" href="{{ item.file.url }}" download>Descargar</a>
+      {% if can_manage_users %}
+      <form class="task-file-delete-form ms-auto" method="post" action="{% url 'workdocs_task_file_delete' task.pk item.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-sm btn-outline-danger" type="submit">Eliminar</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>

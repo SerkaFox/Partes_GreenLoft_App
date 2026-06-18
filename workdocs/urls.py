@@ -10,6 +10,7 @@ urlpatterns = [
     path('tareas/nueva/', views.task_create, name='workdocs_task_create'),
     path('tareas/<int:pk>/', views.task_detail, name='workdocs_task_detail'),
     path('tareas/<int:pk>/comentarios/<int:event_pk>/reaccion/', views.task_comment_reaction, name='workdocs_task_comment_reaction'),
+    path('tareas/<int:pk>/archivos/<int:file_pk>/eliminar/', views.task_file_delete, name='workdocs_task_file_delete'),
     path('tareas/<int:pk>/continuar/', views.task_continue, name='workdocs_task_continue'),
     path('tareas/<int:pk>/quick-status/', views.task_quick_status, name='workdocs_task_quick_status'),
     path('tareas/<int:pk>/estado/<slug:action>/', views.technician_status, name='workdocs_technician_status'),

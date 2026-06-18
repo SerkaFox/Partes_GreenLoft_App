@@ -5,6 +5,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Max, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
@@ -188,43 +189,16 @@ def _chat_items(task, viewer, unread_event_ids=None):
     items = []
     comments = task.events.filter(event_type=TaskEvent.EVENT_COMMENT).select_related('user', 'parent_event', 'parent_event__user').prefetch_related('reads')
     for event in comments:
-        _ensure_profile(event.user)
-        if event.parent_event_id:
-            _ensure_profile(event.parent_event.user)
-        is_own = event.user_id == viewer.id
-        read_by_others = is_own and any(read.user_id != viewer.id for read in event.reads.all())
-        event.user_url = _task_user_url(event.user, viewer)
+        item = _chat_item_for_event(event, viewer)
         event.is_unread = event.id in unread_event_ids
-        event.read_by_others = read_by_others
-        items.append({
-            'kind': 'comment',
-            'created_at': event.created_at,
-            'user': event.user,
-            'user_url': event.user_url,
-            'event': event,
-            'is_own': is_own,
-            'read_by_others': read_by_others,
-        })
+        item['is_unread'] = event.is_unread
+        items.append(item)
     reports = task.voice_reports.filter(report_type=TaskVoiceReport.TYPE_REPORT).select_related('technician')
     for report in reports:
-        _ensure_profile(report.technician)
-        items.append({
-            'kind': 'voice',
-            'created_at': report.created_at,
-            'user': report.technician,
-            'user_url': _task_user_url(report.technician, viewer),
-            'report': report,
-        })
+        items.append(_chat_item_for_report(report, viewer))
     files = task.files.select_related('uploaded_by')
     for item in files:
-        _ensure_profile(item.uploaded_by)
-        items.append({
-            'kind': 'file',
-            'created_at': item.created_at,
-            'user': item.uploaded_by,
-            'user_url': _task_user_url(item.uploaded_by, viewer),
-            'file': item,
-        })
+        items.append(_chat_item_for_file(item, viewer))
     return sorted(items, key=lambda item: item['created_at'])
 
 
@@ -262,16 +236,18 @@ def _sync_task_technicians(task, technicians):
         task.save(update_fields=[*update_fields, 'updated_at'])
 
 
-def _save_uploaded_files(task, user, files, comment=''):
+def _save_uploaded_files(task, user, files, comment='', return_objects=False):
     saved = 0
     voice_saved = 0
+    objects = []
     for uploaded in files:
         file_type = detect_file_type(uploaded)
         if file_type == TaskFile.TYPE_AUDIO:
-            TaskVoiceReport.objects.create(task=task, technician=user, audio_file=uploaded)
+            report = TaskVoiceReport.objects.create(task=task, technician=user, audio_file=uploaded)
+            objects.append(('voice', report))
             voice_saved += 1
             continue
-        TaskFile.objects.create(
+        file_obj = TaskFile.objects.create(
             task=task,
             uploaded_by=user,
             file=uploaded,
@@ -279,11 +255,14 @@ def _save_uploaded_files(task, user, files, comment=''):
             original_name=uploaded.name[:255],
             comment=comment,
         )
+        objects.append(('file', file_obj))
         saved += 1
     if saved:
         _add_event(task, user, TaskEvent.EVENT_FILE, f'{saved} archivo(s) subido(s).')
     if voice_saved:
         _add_event(task, user, TaskEvent.EVENT_AUDIO, f'{voice_saved} audio(s) subido(s).')
+    if return_objects:
+        return objects
     return saved + voice_saved
 
 
@@ -302,6 +281,60 @@ def _save_description_audio(task, user, uploaded):
 
 def _wants_json(request):
     return request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
+
+def _chat_item_for_event(event, viewer):
+    _ensure_profile(event.user)
+    if event.parent_event_id:
+        _ensure_profile(event.parent_event.user)
+    is_own = event.user_id == viewer.id
+    read_by_others = is_own and any(read.user_id != viewer.id for read in event.reads.all())
+    event.user_url = _task_user_url(event.user, viewer)
+    event.is_unread = False
+    event.read_by_others = read_by_others
+    return {
+        'kind': 'comment',
+        'created_at': event.created_at,
+        'user': event.user,
+        'user_url': event.user_url,
+        'event': event,
+        'is_own': is_own,
+        'read_by_others': read_by_others,
+    }
+
+
+def _chat_item_for_report(report, viewer):
+    _ensure_profile(report.technician)
+    return {
+        'kind': 'voice',
+        'created_at': report.created_at,
+        'user': report.technician,
+        'user_url': _task_user_url(report.technician, viewer),
+        'report': report,
+    }
+
+
+def _chat_item_for_file(file_obj, viewer):
+    _ensure_profile(file_obj.uploaded_by)
+    return {
+        'kind': 'file',
+        'created_at': file_obj.created_at,
+        'user': file_obj.uploaded_by,
+        'user_url': _task_user_url(file_obj.uploaded_by, viewer),
+        'file': file_obj,
+    }
+
+
+def _render_chat_item(request, task, item):
+    return render_to_string('workdocs/partials_chat_item.html', {'task': task, 'item': item}, request=request)
+
+
+def _render_task_file_card(request, task, file_obj):
+    return render_to_string(
+        'workdocs/partials_task_file_card.html',
+        {'task': task, 'item': file_obj, 'can_manage_users': _can_manage_users(request.user)},
+        request=request,
+    )
 
 
 @login_required(login_url='/panel/login/')
@@ -442,9 +475,23 @@ def task_detail(request, pk):
         elif action == 'upload_files':
             uploaded_files = request.FILES.getlist('files')
             if uploaded_files:
-                count = _save_uploaded_files(task, request.user, uploaded_files, request.POST.get('comment') if request.POST.get('with_file_comment') else '')
+                uploaded_objects = _save_uploaded_files(
+                    task,
+                    request.user,
+                    uploaded_files,
+                    request.POST.get('comment') if request.POST.get('with_file_comment') else '',
+                    return_objects=True,
+                )
                 if _wants_json(request):
-                    return JsonResponse({'ok': True, 'message': f'{count} archivo(s) subido(s).'})
+                    item_html = []
+                    file_html = []
+                    for kind, obj in uploaded_objects:
+                        item = _chat_item_for_report(obj, request.user) if kind == 'voice' else _chat_item_for_file(obj, request.user)
+                        item_html.append(_render_chat_item(request, task, item))
+                        if kind == 'file':
+                            file_html.append(_render_task_file_card(request, task, obj))
+                    return JsonResponse({'ok': True, 'item_html': item_html, 'file_html': file_html})
+                count = len(uploaded_objects)
                 messages.success(request, f'{count} archivo(s) subido(s).')
                 return redirect('workdocs_task_detail', pk=task.pk)
             if _wants_json(request):
@@ -457,15 +504,20 @@ def task_detail(request, pk):
                 reply_to = request.POST.get('reply_to')
                 if reply_to:
                     parent = task.events.filter(pk=reply_to, event_type=TaskEvent.EVENT_COMMENT).first()
-                TaskEvent.objects.create(
+                event = TaskEvent.objects.create(
                     task=task,
                     user=request.user,
                     event_type=TaskEvent.EVENT_COMMENT,
                     comment=comment_form.cleaned_data['comment'],
                     parent_event=parent,
                 )
+                if _wants_json(request):
+                    item = _chat_item_for_event(event, request.user)
+                    return JsonResponse({'ok': True, 'item_html': [_render_chat_item(request, task, item)]})
                 messages.success(request, 'Comentario añadido.')
                 return redirect('workdocs_task_detail', pk=task.pk)
+            if _wants_json(request):
+                return JsonResponse({'ok': False, 'errors': comment_form.errors}, status=400)
         elif action == 'voice':
             voice_form = VoiceReportForm(request.POST, request.FILES)
             if voice_form.is_valid():
@@ -475,7 +527,8 @@ def task_detail(request, pk):
                 report.save()
                 _add_event(task, request.user, TaskEvent.EVENT_AUDIO, 'Informe de voz subido.')
                 if _wants_json(request):
-                    return JsonResponse({'ok': True, 'message': 'Audio subido correctamente.'})
+                    item = _chat_item_for_report(report, request.user)
+                    return JsonResponse({'ok': True, 'item_html': [_render_chat_item(request, task, item)]})
                 messages.success(request, 'Audio subido correctamente.')
                 return redirect('workdocs_task_detail', pk=task.pk)
             if _wants_json(request):
@@ -525,6 +578,24 @@ def task_comment_reaction(request, pk, event_pk):
     reactions[emoji] = int(reactions.get(emoji, 0)) + 1
     event.reactions = reactions
     event.save(update_fields=['reactions'])
+    if _wants_json(request):
+        return JsonResponse({'ok': True, 'reactions': reactions})
+    return redirect('workdocs_task_detail', pk=task.pk)
+
+
+@login_required(login_url='/panel/login/')
+@require_POST
+def task_file_delete(request, pk, file_pk):
+    task = _get_visible_task(request.user, pk)
+    if not _can_manage_users(request.user):
+        raise PermissionDenied
+    file_obj = get_object_or_404(task.files, pk=file_pk)
+    file_obj.file.delete(save=False)
+    file_obj.delete()
+    _add_event(task, request.user, TaskEvent.EVENT_FILE, 'Archivo eliminado.')
+    if _wants_json(request):
+        return JsonResponse({'ok': True, 'file_id': file_pk})
+    messages.success(request, 'Archivo eliminado.')
     return redirect('workdocs_task_detail', pk=task.pk)
 
 
