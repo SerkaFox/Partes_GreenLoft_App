@@ -77,6 +77,18 @@ El sistema tiene dos áreas principales:
      - `processing`
      - `done`
      - `error`
+   - API local para Jarvis Telegram Bot:
+     - endpoint: `POST /api/stt/transcribe`
+     - escucha por defecto en `127.0.0.1:8091`
+     - requiere header `X-JARVIS-TOKEN`
+     - usa el mismo motor `faster-whisper`
+     - no modifica tareas ni mensajes de Workdocs
+     - ejemplo:
+       ```bash
+       curl -X POST http://127.0.0.1:8091/api/stt/transcribe \
+         -H "X-JARVIS-TOKEN: ..." \
+         -F "file=@voice.ogg"
+       ```
 
 9. Materiales
    - En el detalle de tarea hay panel de materiales.
@@ -205,6 +217,9 @@ GOOGLE_SHEET_ID=
 GOOGLE_SERVICE_ACCOUNT_JSON=
 
 WORKDOCS_WHISPER_MODEL=tiny
+JARVIS_STT_TOKEN=
+STT_HOST=127.0.0.1
+STT_PORT=8091
 ```
 
 ## Stack

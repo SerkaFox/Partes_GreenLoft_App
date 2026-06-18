@@ -1,0 +1,16 @@
+[Unit]
+Description=J Listoya local STT API for Jarvis
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/seradmin/jelec/j_listoya
+EnvironmentFile=/home/seradmin/jelec/j_listoya/.env
+ExecStart=/home/seradmin/jelec/j_listoya/venv/bin/uvicorn stt_api:app --host ${STT_HOST} --port ${STT_PORT}
+Restart=on-failure
+RestartSec=5
+User=seradmin
+Group=seradmin
+
+[Install]
+WantedBy=multi-user.target

@@ -13,6 +13,19 @@ def _download_root():
     return getattr(settings, 'WORKDOCS_WHISPER_CACHE', settings.BASE_DIR / 'media' / 'whisper_models')
 
 
+def transcribe_file(audio_path, language='es'):
+    from faster_whisper import WhisperModel
+
+    model = WhisperModel(_model_name(), device='cpu', compute_type='int8', download_root=str(_download_root()))
+    segments, info = model.transcribe(audio_path, beam_size=1, language=language)
+    transcript = ' '.join(segment.text.strip() for segment in segments if segment.text.strip()).strip()
+    return {
+        'text': transcript,
+        'language': getattr(info, 'language', language),
+        'duration': getattr(info, 'duration', None),
+    }
+
+
 def transcribe_audio(report_id):
     report = TaskVoiceReport.objects.get(pk=report_id)
     if report.transcript_status == TaskVoiceReport.TRANSCRIPT_PROCESSING:
@@ -22,11 +35,8 @@ def transcribe_audio(report_id):
     report.save(update_fields=['transcript_status'])
 
     try:
-        from faster_whisper import WhisperModel
-
-        model = WhisperModel(_model_name(), device='cpu', compute_type='int8', download_root=str(_download_root()))
-        segments, _info = model.transcribe(report.audio_file.path, beam_size=1, language='es')
-        transcript = ' '.join(segment.text.strip() for segment in segments if segment.text.strip()).strip()
+        result = transcribe_file(report.audio_file.path, language='es')
+        transcript = result['text']
         report.transcript_text = transcript
         report.transcript_status = TaskVoiceReport.TRANSCRIPT_DONE
         report.save(update_fields=['transcript_text', 'transcript_status'])
