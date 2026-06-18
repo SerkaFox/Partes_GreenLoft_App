@@ -85,6 +85,7 @@ class Task(models.Model):
         limit_choices_to={'work_profile__role': UserProfile.ROLE_TECHNICIAN},
     )
     vehicle = models.ForeignKey('partes.Vehiculo', blank=True, null=True, on_delete=models.SET_NULL)
+    parent_task = models.ForeignKey('self', blank=True, null=True, on_delete=models.SET_NULL, related_name='continued_tasks')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     started_at = models.DateTimeField(blank=True, null=True)
@@ -161,6 +162,12 @@ class TaskFile(models.Model):
 
 
 class TaskVoiceReport(models.Model):
+    TYPE_REPORT = 'report'
+    TYPE_DESCRIPTION = 'description'
+    TYPE_CHOICES = [
+        (TYPE_REPORT, 'Informe'),
+        (TYPE_DESCRIPTION, 'Descripción'),
+    ]
     TRANSCRIPT_PENDING = 'pending'
     TRANSCRIPT_PROCESSING = 'processing'
     TRANSCRIPT_DONE = 'done'
@@ -175,6 +182,7 @@ class TaskVoiceReport(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='voice_reports')
     technician = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='voice_reports')
     audio_file = models.FileField(upload_to=voice_report_upload_to)
+    report_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default=TYPE_REPORT)
     transcript_text = models.TextField(blank=True)
     transcript_status = models.CharField(max_length=20, choices=TRANSCRIPT_CHOICES, default=TRANSCRIPT_PENDING)
     created_at = models.DateTimeField(auto_now_add=True)

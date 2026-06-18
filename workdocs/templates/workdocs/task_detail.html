@@ -28,13 +28,12 @@
       <div class="card-body">
         <p class="mb-3">{{ task.description|linebreaksbr|default:'Sin descripción.' }}</p>
         <div class="row g-2 compact-meta">
+          {% if task.parent_task %}
+          <div class="col-md-6">Continuación de: <a href="{% url 'workdocs_task_detail' task.parent_task.pk %}">#{{ task.parent_task.pk }} {{ task.parent_task.title }}</a></div>
+          {% endif %}
           <div class="col-md-6">Creada por: {{ task.created_by.get_full_name|default:task.created_by.username }}</div>
           <div class="col-md-6">Técnicos: {% for technician in task.assigned_technicians %}{{ technician.get_full_name|default:technician.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</div>
           <div class="col-md-6">Vehículo: <span id="task-info-vehicle">{{ task.vehicle|default:'Sin vehículo' }}</span></div>
-          {% if role != 'technician' %}
-          <div class="col-md-6">Latitud: {{ task.latitude|default:'-' }}</div>
-          <div class="col-md-6">Longitud: {{ task.longitude|default:'-' }}</div>
-          {% endif %}
           <div class="col-md-6">Creada: {{ task.created_at|date:'d/m/Y H:i' }}</div>
           <div class="col-md-6">Actualizada: {{ task.updated_at|date:'d/m/Y H:i' }}</div>
         </div>
@@ -43,21 +42,30 @@
           <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination={{ map_coords }}">Cómo llegar</a>
           <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ map_coords }}">Abrir en Google Maps</a>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'parte_form' %}?task={{ task.pk }}">Crear parte</a>
+          {% if can_edit_task %}<form class="d-inline" method="post" action="{% url 'workdocs_task_continue' task.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" type="submit">Continuar tarea</button></form>{% endif %}
         </div>
         {% elif task.address %}
         <div class="d-flex flex-wrap gap-2 mt-3">
           <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ task.address|urlencode }}">Abrir en Google Maps</a>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'parte_form' %}?task={{ task.pk }}">Crear parte</a>
+          {% if can_edit_task %}<form class="d-inline" method="post" action="{% url 'workdocs_task_continue' task.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" type="submit">Continuar tarea</button></form>{% endif %}
         </div>
         {% else %}
-        <a class="btn btn-sm btn-outline-primary mt-3" href="{% url 'parte_form' %}?task={{ task.pk }}">Crear parte</a>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'parte_form' %}?task={{ task.pk }}">Crear parte</a>
+          {% if can_edit_task %}<form class="d-inline" method="post" action="{% url 'workdocs_task_continue' task.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" type="submit">Continuar tarea</button></form>{% endif %}
+        </div>
         {% endif %}
       </div>
     </div>
 
     {% if can_edit_task %}
     <div class="card border-0 shadow-sm mb-3">
-      <div class="card-header bg-white fw-semibold">Editar tarea</div>
+      <button class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center border-0" type="button" data-bs-toggle="collapse" data-bs-target="#task-edit-panel" aria-expanded="false" aria-controls="task-edit-panel">
+        <span>Editar tarea</span>
+        <span class="compact-meta">Abrir si necesitas cambiar datos</span>
+      </button>
+      <div class="collapse" id="task-edit-panel">
       <form method="post" enctype="multipart/form-data" id="task-autosave-form" data-autosave="true">
         {% csrf_token %}
         <input type="hidden" name="action" value="update_task">
@@ -66,15 +74,63 @@
         </div>
         <div class="card-footer bg-white compact-meta" id="task-autosave-status">Los cambios se guardan automáticamente.</div>
       </form>
+      </div>
     </div>
     {% endif %}
 
+    <div class="card">
+      <button class="card-header fw-semibold d-flex justify-content-between align-items-center border-0" type="button" data-bs-toggle="collapse" data-bs-target="#task-history" aria-expanded="false" aria-controls="task-history">
+        <span>Historia</span>
+        <span class="badge text-bg-secondary">{{ events|length }}</span>
+      </button>
+      <div class="collapse" id="task-history">
+      <div class="card-body timeline">
+        {% for event in events %}
+        <div class="timeline-item">
+          <div class="d-flex justify-content-between gap-2">
+            <div class="fw-semibold">{{ event.get_event_type_display }}</div>
+            <div class="compact-meta">{{ event.created_at|date:'d/m/Y H:i' }}</div>
+          </div>
+          <div class="compact-meta">{{ event.user.get_full_name|default:event.user.username }}</div>
+          {% if event.comment %}<div class="mt-1">{{ event.comment|linebreaksbr }}</div>{% endif %}
+          {% if event.event_type == 'file' %}
+          <a class="small timeline-jump" href="#task-files">Ver archivos</a>
+          {% elif event.event_type == 'comment' %}
+          <a class="small timeline-jump" href="#task-comments">Ver comentarios</a>
+          {% elif event.event_type == 'audio' %}
+          <a class="small timeline-jump" href="#task-voice">Ver audios</a>
+          {% endif %}
+        </div>
+        {% empty %}
+        <div class="compact-meta">Sin eventos.</div>
+        {% endfor %}
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
     <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold">Subir archivo</div>
+      <form method="post" enctype="multipart/form-data" id="file-upload-form" data-autosubmit="file">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="upload_files">
+        <div class="card-body">
+          <label class="form-label" for="{{ file_form.files.id_for_label }}">Archivos</label>
+          <input class="form-control multi-file-input" id="{{ file_form.files.id_for_label }}" name="files" type="file" multiple data-preview-target="#detail-file-preview">
+          <div class="file-preview-grid mt-2" id="detail-file-preview"></div>
+          <div class="mt-3">{{ file_form.comment.label_tag }} {{ file_form.comment }}</div>
+          <div class="compact-meta mt-2" id="file-upload-status">Se sube automáticamente al elegir archivos.</div>
+        </div>
+      </form>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3" id="task-files">
       <div class="card-header bg-white fw-semibold">Archivos</div>
       <div class="card-body">
         <div class="row g-3">
           {% for item in files %}
-          <div class="col-md-6 col-xl-4">
+          <div class="col-12">
             <div class="border rounded p-2 h-100 bg-white">
               {% if item.is_image %}
               <a href="{{ item.file.url }}" target="_blank" rel="noopener"><img class="task-thumb" src="{{ item.file.url }}" alt="{{ item.original_name }}"></a>
@@ -101,53 +157,13 @@
             </div>
           </div>
           {% empty %}
-          <div class="col-12 text-muted">No hay archivos.</div>
+          <div class="col-12 compact-meta">No hay archivos.</div>
           {% endfor %}
         </div>
       </div>
     </div>
 
-    <div class="card">
-      <button class="card-header fw-semibold d-flex justify-content-between align-items-center border-0" type="button" data-bs-toggle="collapse" data-bs-target="#task-history" aria-expanded="false" aria-controls="task-history">
-        <span>Historia</span>
-        <span class="badge text-bg-secondary">{{ events|length }}</span>
-      </button>
-      <div class="collapse" id="task-history">
-      <div class="card-body timeline">
-        {% for event in events %}
-        <div class="timeline-item">
-          <div class="d-flex justify-content-between gap-2">
-            <div class="fw-semibold">{{ event.get_event_type_display }}</div>
-            <div class="compact-meta">{{ event.created_at|date:'d/m/Y H:i' }}</div>
-          </div>
-          <div class="compact-meta">{{ event.user.get_full_name|default:event.user.username }}</div>
-          {% if event.comment %}<div class="mt-1">{{ event.comment|linebreaksbr }}</div>{% endif %}
-        </div>
-        {% empty %}
-        <div class="compact-meta">Sin eventos.</div>
-        {% endfor %}
-      </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-lg-4">
-    <div class="card border-0 shadow-sm mb-3">
-      <div class="card-header bg-white fw-semibold">Subir archivo</div>
-      <form method="post" enctype="multipart/form-data" id="file-upload-form" data-autosubmit="file">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="upload_files">
-        <div class="card-body">
-          <label class="form-label" for="{{ file_form.files.id_for_label }}">Archivos</label>
-          <input class="form-control multi-file-input" id="{{ file_form.files.id_for_label }}" name="files" type="file" multiple data-preview-target="#detail-file-preview">
-          <div class="file-preview-grid mt-2" id="detail-file-preview"></div>
-          <div class="mt-3">{{ file_form.comment.label_tag }} {{ file_form.comment }}</div>
-          <div class="compact-meta mt-2" id="file-upload-status">Se sube automáticamente al elegir archivos.</div>
-        </div>
-      </form>
-    </div>
-
-    <div class="card border-0 shadow-sm mb-3">
+    <div class="card border-0 shadow-sm mb-3" id="task-comments">
       <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
         <span>Comentarios</span>
         {% if comments %}<span class="badge text-bg-secondary">{{ comments|length }}</span>{% endif %}
@@ -176,7 +192,7 @@
       </form>
     </div>
 
-    <div class="card border-0 shadow-sm mb-3">
+    <div class="card border-0 shadow-sm mb-3" id="task-voice">
       <div class="card-header bg-white fw-semibold">Informe de voz</div>
       <form method="post" enctype="multipart/form-data" id="voice-upload-form">
         {% csrf_token %}
@@ -290,6 +306,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape') closePdf();
+  });
+  document.querySelectorAll('.timeline-jump').forEach(link => {
+    link.addEventListener('click', () => {
+      const target = document.querySelector(link.getAttribute('href'));
+      if (!target) return;
+      window.setTimeout(() => {
+        target.classList.remove('history-highlight');
+        void target.offsetWidth;
+        target.classList.add('history-highlight');
+      }, 80);
+    });
   });
 
   const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value;

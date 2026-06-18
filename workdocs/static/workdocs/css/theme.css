@@ -143,6 +143,9 @@ body.workdocs-theme .task-card {
   box-shadow: 0 16px 38px rgba(0, 0, 0, .34);
   transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
 }
+.task-grid .task-card {
+  margin: 0;
+}
 
 body.workdocs-theme .task-card:hover,
 body.workdocs-theme .task-card:focus {
@@ -287,6 +290,14 @@ body.workdocs-theme .task-card:focus {
   border: 1px solid rgba(190, 235, 213, .18);
   border-radius: 8px;
   background: rgba(7, 20, 17, .46);
+}
+.timeline-jump {
+  display: inline-block;
+  margin-top: 6px;
+}
+.history-highlight {
+  animation: historyHighlight 1.4s ease;
+  box-shadow: 0 0 0 2px rgba(73, 201, 133, .55), var(--wl-shadow) !important;
 }
 .pdf-preview-overlay[hidden] {
   display: none !important;
@@ -445,6 +456,10 @@ img.avatar {
 @keyframes cardGlow {
   0% { box-shadow: 0 0 0 0 rgba(73, 201, 133, .34), 0 18px 42px rgba(0,0,0,.34); }
   100% { box-shadow: 0 0 0 1px rgba(73, 201, 133, .18), 0 24px 54px rgba(0,0,0,.48); }
+}
+@keyframes historyHighlight {
+  0%, 100% { box-shadow: var(--wl-shadow); }
+  35% { box-shadow: 0 0 0 3px rgba(73, 201, 133, .7), 0 24px 70px rgba(0, 0, 0, .5); }
 }
 
 .compact-meta,

@@ -30,7 +30,7 @@
       {{ form.description }}
       {% for error in form.description.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
       <div class="border rounded p-3 mt-2 bg-light">
-        <div class="small text-muted mb-2">Puedes grabar una descripción por voz. La transcripción se añadirá más adelante.</div>
+        <div class="small text-muted mb-2">Puedes grabar una descripción por voz. Se transcribe automáticamente y se añade a la descripción.</div>
         <input class="description-audio-input" type="file" name="description_audio" accept="audio/*" hidden>
         <audio class="description-audio-player w-100 d-none mb-2" controls></audio>
         <div class="d-flex flex-wrap gap-2">
@@ -39,6 +39,24 @@
           <button class="btn btn-sm btn-outline-primary use-description-audio d-none" type="button">Usar audio</button>
         </div>
         <div class="small text-muted mt-2 description-audio-status"></div>
+        {% if description_voice_reports %}
+        <div class="mt-3 d-grid gap-2">
+          {% for report in description_voice_reports %}
+          <div class="task-transcript">
+            <div class="compact-meta">{{ report.created_at|date:'d/m/Y H:i' }} · {{ report.get_transcript_status_display }}</div>
+            {% if report.transcript_status == 'done' %}
+            <div class="mt-1">{{ report.transcript_text|linebreaksbr|default:'Sin texto transcrito.' }}</div>
+            {% elif report.transcript_status == 'processing' %}
+            <div class="compact-meta mt-1">Transcribiendo...</div>
+            {% elif report.transcript_status == 'error' %}
+            <div class="text-danger small mt-1">{{ report.transcript_text|default:'No se pudo transcribir el audio.' }}</div>
+            {% else %}
+            <div class="compact-meta mt-1">Pendiente de transcripción.</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
     </div>
 
@@ -50,7 +68,12 @@
       </div>
       <div class="small text-muted mt-1">Mueve el marcador para ajustar la ubicación.</div>
       {% for error in form.address.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+      {% if form.instance.latitude and form.instance.longitude %}
+      <button class="btn btn-sm btn-outline-primary mt-2" type="button" data-bs-toggle="collapse" data-bs-target="#task-map-panel" aria-expanded="false" aria-controls="task-map-panel">Editar mapa</button>
+      <div class="collapse" id="task-map-panel"><div class="map-box mt-2"></div></div>
+      {% else %}
       <div class="map-box mt-2"></div>
+      {% endif %}
     </div>
 
     <div class="col-12 position-relative">

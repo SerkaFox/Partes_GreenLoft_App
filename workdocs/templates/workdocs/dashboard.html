@@ -22,9 +22,11 @@
     <span class="fw-semibold">Tareas activas</span>
     <a class="btn btn-sm btn-outline-primary" href="{% url 'workdocs_task_list' %}">Ver todas</a>
   </div>
-  <div class="list-group list-group-flush">
+  <div class="card-body">
+  <div class="row g-3 task-grid">
     {% for task in tasks %}
-    <div class="list-group-item task-card task-active clickable-task-card {% if task.status == 'NUEVA' %}task-new-pulse{% endif %}" data-href="{% url 'workdocs_task_detail' task.pk %}" role="link" tabindex="0">
+    <div class="col-xl-6">
+    <div class="task-card task-active clickable-task-card h-100 {% if task.status == 'NUEVA' %}task-new-pulse{% endif %}" data-href="{% url 'workdocs_task_detail' task.pk %}" role="link" tabindex="0">
       <div class="d-flex justify-content-between gap-2">
         <div>
           <a class="text-decoration-none task-title-link" href="{% url 'workdocs_task_detail' task.pk %}">
@@ -52,9 +54,11 @@
       </form>
       {% endif %}
     </div>
+    </div>
     {% empty %}
-    <div class="list-group-item compact-meta">No hay tareas activas.</div>
+    <div class="col-12 compact-meta">No hay tareas activas.</div>
     {% endfor %}
+  </div>
   </div>
 </div>
 
@@ -67,6 +71,13 @@
       <div class="card-body">
         <div class="fw-semibold text-white">{{ technician.get_full_name|default:technician.username }}</div>
         <div class="compact-meta">{{ technician.active_tasks }} tareas activas</div>
+        {% if technician.active_task_titles %}
+        <div class="small mt-2">
+          {% for title in technician.active_task_titles %}
+          <div class="text-white text-truncate">{{ title }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
         <span class="badge text-bg-success mt-2">En seguimiento</span>
         {% if technician.last_activity %}
         <div class="compact-meta mt-2">Última actividad: {{ technician.last_activity|date:'d/m/Y H:i' }}</div>

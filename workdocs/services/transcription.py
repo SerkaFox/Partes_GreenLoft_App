@@ -30,6 +30,13 @@ def transcribe_audio(report_id):
         report.transcript_text = transcript
         report.transcript_status = TaskVoiceReport.TRANSCRIPT_DONE
         report.save(update_fields=['transcript_text', 'transcript_status'])
+        if transcript and report.report_type == TaskVoiceReport.TYPE_DESCRIPTION:
+            task = report.task
+            marker = f'Transcripción de descripción #{report.pk}:'
+            if marker not in task.description:
+                prefix = '\n\n' if task.description.strip() else ''
+                task.description = f'{task.description}{prefix}{marker}\n{transcript}'
+                task.save(update_fields=['description', 'updated_at'])
     except Exception as exc:
         report.transcript_text = str(exc)[:2000]
         report.transcript_status = TaskVoiceReport.TRANSCRIPT_ERROR

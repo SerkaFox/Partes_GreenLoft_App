@@ -96,6 +96,7 @@ function initTaskEditors() {
     };
     marker.on('dragend', () => setPoint(marker.getLatLng()));
     map.on('click', event => setPoint(event.latlng));
+    mapEl.closest('.collapse')?.addEventListener('shown.bs.collapse', () => map.invalidateSize());
     const searchAddress = async () => {
       const query = addressInput.value.trim();
       if (!query) return;

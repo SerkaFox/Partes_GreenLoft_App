@@ -136,6 +136,20 @@ def _add_event(task, user, event_type, comment=''):
     return TaskEvent.objects.create(task=task, user=user, event_type=event_type, comment=comment)
 
 
+def _events_for_display(task):
+    events = []
+    seen_status = set()
+    for event in task.events.select_related('user')[:120]:
+        if event.event_type == TaskEvent.EVENT_STATUS and event.comment in seen_status:
+            continue
+        if event.event_type == TaskEvent.EVENT_STATUS:
+            seen_status.add(event.comment)
+        events.append(event)
+        if len(events) >= 80:
+            break
+    return events
+
+
 def _selected_technicians(form):
     return list(form.cleaned_data.get('technicians') or [])
 
@@ -176,8 +190,13 @@ def _save_uploaded_files(task, user, files, comment=''):
 def _save_description_audio(task, user, uploaded):
     if not uploaded:
         return None
-    report = TaskVoiceReport.objects.create(task=task, technician=user, audio_file=uploaded)
-    _add_event(task, user, TaskEvent.EVENT_AUDIO, 'Descripción de voz añadida.')
+    report = TaskVoiceReport.objects.create(
+        task=task,
+        technician=user,
+        audio_file=uploaded,
+        report_type=TaskVoiceReport.TYPE_DESCRIPTION,
+    )
+    _add_event(task, user, TaskEvent.EVENT_AUDIO, 'Descripción de voz añadida. Se transcribirá automáticamente.')
     return report
 
 
@@ -210,6 +229,7 @@ def dashboard(request):
             if active_count:
                 technician.active_tasks = active_count
                 technician.last_activity = tech_tasks.aggregate(last_activity=Max('updated_at'))['last_activity']
+                technician.active_task_titles = list(tech_tasks.order_by('-updated_at').values_list('title', flat=True)[:3])
                 technicians.append(technician)
         context['technicians'] = technicians
     return render(request, 'workdocs/dashboard.html', context)
@@ -299,6 +319,7 @@ def task_detail(request, pk):
             form = TaskForm(request.POST, instance=task, role=role)
             if form.is_valid():
                 old_assignee = task.assigned_to_id
+                old_status = task.status
                 old_technicians = set(task.technicians.values_list('id', flat=True))
                 task = form.save(commit=False)
                 technicians = _selected_technicians(form)
@@ -308,7 +329,8 @@ def task_detail(request, pk):
                 if old_assignee != task.assigned_to_id or old_technicians != new_technicians:
                     label = ', '.join(_display_user(user) for user in technicians) if technicians else 'Sin asignar'
                     _add_event(task, request.user, TaskEvent.EVENT_ASSIGNED, f'Técnicos asignados: {label}.')
-                _add_event(task, request.user, TaskEvent.EVENT_STATUS, f'Estado actualizado: {task.get_status_display()}.')
+                if old_status != task.status:
+                    _add_event(task, request.user, TaskEvent.EVENT_STATUS, f'Estado actualizado: {task.get_status_display()}.')
                 _save_description_audio(task, request.user, request.FILES.get('description_audio'))
                 if _wants_json(request):
                     return JsonResponse({'ok': True, 'message': 'Guardado automáticamente.'})
@@ -363,10 +385,36 @@ def task_detail(request, pk):
         'comment_form': CommentForm(),
         'voice_form': VoiceReportForm(),
         'files': task.files.select_related('uploaded_by'),
-        'events': task.events.select_related('user')[:80],
+        'events': _events_for_display(task),
         'comments': comments,
-        'voice_reports': task.voice_reports.select_related('technician'),
+        'voice_reports': task.voice_reports.filter(report_type=TaskVoiceReport.TYPE_REPORT).select_related('technician'),
+        'description_voice_reports': task.voice_reports.filter(report_type=TaskVoiceReport.TYPE_DESCRIPTION).select_related('technician'),
     })
+
+
+@login_required(login_url='/panel/login/')
+@require_POST
+def task_continue(request, pk):
+    source = _get_visible_task(request.user, pk)
+    if not _can_edit_task(request.user, source):
+        raise PermissionDenied
+    task = Task.objects.create(
+        title=f'{source.title} - continuación',
+        description=source.description,
+        address=source.address,
+        latitude=source.latitude,
+        longitude=source.longitude,
+        status=Task.STATUS_ASIGNADA if source.assigned_to_id else Task.STATUS_NUEVA,
+        created_by=request.user,
+        assigned_to=source.assigned_to,
+        vehicle=source.vehicle,
+        parent_task=source,
+    )
+    task.technicians.set(source.assigned_technicians)
+    _add_event(task, request.user, TaskEvent.EVENT_CREATED, f'Continuación de tarea #{source.pk}.')
+    _add_event(source, request.user, TaskEvent.EVENT_STATUS, f'Tarea continuada en #{task.pk}.')
+    messages.success(request, 'Continuación creada correctamente.')
+    return redirect('workdocs_task_detail', pk=task.pk)
 
 
 @login_required(login_url='/panel/login/')

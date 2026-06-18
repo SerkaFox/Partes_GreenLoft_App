@@ -9,6 +9,7 @@ urlpatterns = [
     path('tareas/', views.task_list, name='workdocs_task_list'),
     path('tareas/nueva/', views.task_create, name='workdocs_task_create'),
     path('tareas/<int:pk>/', views.task_detail, name='workdocs_task_detail'),
+    path('tareas/<int:pk>/continuar/', views.task_continue, name='workdocs_task_continue'),
     path('tareas/<int:pk>/quick-status/', views.task_quick_status, name='workdocs_task_quick_status'),
     path('tareas/<int:pk>/estado/<slug:action>/', views.technician_status, name='workdocs_technician_status'),
     path('tecnicos/<int:pk>/', views.technician_detail, name='workdocs_technician_detail'),
