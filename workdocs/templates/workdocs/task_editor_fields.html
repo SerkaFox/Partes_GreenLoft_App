@@ -2,6 +2,7 @@
   {{ form.latitude }}
   {{ form.longitude }}
   {{ form.assigned_to }}
+  {{ form.technicians }}
   <div class="row g-3">
     <div class="col-md-8">
       <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
@@ -43,10 +44,11 @@
     </div>
 
     <div class="col-12 position-relative">
-      <label class="form-label">Técnico asignado</label>
-      <input class="form-control technician-search" type="text" placeholder="Escribe el nombre del técnico..." value="{% if form.instance.assigned_to %}{{ form.instance.assigned_to.get_full_name|default:form.instance.assigned_to.username }}{% endif %}" autocomplete="off">
+      <label class="form-label">Técnicos asignados</label>
+      <div class="selected-technicians d-flex flex-wrap gap-2 mb-2"></div>
+      <input class="form-control technician-search" type="text" placeholder="Escribe el nombre del técnico..." autocomplete="off">
       <div class="user-results d-none technician-results"></div>
-      {% for error in form.assigned_to.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+      {% for error in form.technicians.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
     </div>
   </div>
 </div>

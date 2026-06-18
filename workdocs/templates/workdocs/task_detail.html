@@ -28,7 +28,7 @@
         <p class="mb-3">{{ task.description|linebreaksbr|default:'Sin descripción.' }}</p>
         <div class="row g-2 compact-meta">
           <div class="col-md-6">Creada por: {{ task.created_by.get_full_name|default:task.created_by.username }}</div>
-          <div class="col-md-6">Técnico: {% if task.assigned_to %}{{ task.assigned_to.get_full_name|default:task.assigned_to.username }}{% else %}Sin asignar{% endif %}</div>
+          <div class="col-md-6">Técnicos: {% for technician in task.assigned_technicians %}{{ technician.get_full_name|default:technician.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</div>
           {% if role != 'technician' %}
           <div class="col-md-6">Latitud: {{ task.latitude|default:'-' }}</div>
           <div class="col-md-6">Longitud: {{ task.longitude|default:'-' }}</div>

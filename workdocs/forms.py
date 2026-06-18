@@ -19,9 +19,16 @@ class BootstrapMixin:
 
 
 class TaskForm(BootstrapMixin, forms.ModelForm):
+    technicians = forms.ModelMultipleChoiceField(
+        label='Técnicos asignados',
+        queryset=User.objects.none(),
+        required=False,
+        widget=forms.SelectMultiple(attrs={'class': 'technicians-select d-none'}),
+    )
+
     class Meta:
         model = Task
-        fields = ['title', 'description', 'address', 'latitude', 'longitude', 'assigned_to', 'status']
+        fields = ['title', 'description', 'address', 'latitude', 'longitude', 'assigned_to', 'technicians', 'status']
         labels = {
             'title': 'Título',
             'description': 'Descripción',
@@ -44,11 +51,28 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
         self._bootstrap()
         technicians = User.objects.filter(work_profile__role=UserProfile.ROLE_TECHNICIAN, is_active=True).order_by('first_name', 'username')
         self.fields['assigned_to'].queryset = technicians
+        self.fields['technicians'].queryset = technicians
         self.fields['assigned_to'].required = False
+        self.fields['technicians'].label_from_instance = lambda user: user.get_full_name() or user.get_username()
         self.fields['assigned_to'].label_from_instance = lambda user: user.get_full_name() or user.get_username()
+        if self.instance and self.instance.pk and not self.is_bound:
+            selected = list(self.instance.technicians.all())
+            if self.instance.assigned_to and self.instance.assigned_to not in selected:
+                selected.insert(0, self.instance.assigned_to)
+            self.fields['technicians'].initial = selected
         if role == UserProfile.ROLE_TECHNICIAN:
             for field in self.fields.values():
                 field.disabled = True
+
+    def save(self, commit=True):
+        task = super().save(commit=False)
+        technicians = list(self.cleaned_data.get('technicians') or [])
+        task.assigned_to = technicians[0] if technicians else None
+        if commit:
+            task.save()
+            self.save_m2m()
+            task.technicians.set(technicians)
+        return task
 
 
 class MultiFileInput(forms.ClearableFileInput):

@@ -50,6 +50,8 @@ function initTaskEditors() {
     const lngInput = editor.querySelector('[name="longitude"]');
     const addressInput = editor.querySelector('[name="address"]');
     const assignedInput = editor.querySelector('[name="assigned_to"]');
+    const techniciansSelect = editor.querySelector('.technicians-select');
+    const selectedTechnicians = editor.querySelector('.selected-technicians');
     const techSearch = editor.querySelector('.technician-search');
     const techResults = editor.querySelector('.technician-results');
     const mapEl = editor.querySelector('.map-box');
@@ -89,9 +91,30 @@ function initTaskEditors() {
     });
     setTimeout(() => map.invalidateSize(), 250);
 
+    const selectedTechs = new Map(
+      [...techniciansSelect.selectedOptions].map(option => [option.value, option.textContent])
+    );
+    const syncTechnicians = () => {
+      [...techniciansSelect.options].forEach(option => {
+        option.selected = selectedTechs.has(option.value);
+      });
+      assignedInput.value = selectedTechs.size ? [...selectedTechs.keys()][0] : '';
+      selectedTechnicians.innerHTML = '';
+      selectedTechs.forEach((name, id) => {
+        const badge = document.createElement('span');
+        badge.className = 'technician-chip';
+        badge.innerHTML = `<span>${name}</span><button type="button" aria-label="Quitar técnico">&times;</button>`;
+        badge.querySelector('button').addEventListener('click', () => {
+          selectedTechs.delete(id);
+          syncTechnicians();
+        });
+        selectedTechnicians.appendChild(badge);
+      });
+    };
+    syncTechnicians();
+
     let techTimer = null;
     techSearch.addEventListener('input', () => {
-      assignedInput.value = '';
       clearTimeout(techTimer);
       techTimer = setTimeout(async () => {
         const q = techSearch.value.trim();
@@ -108,8 +131,14 @@ function initTaskEditors() {
           button.className = 'user-result';
           button.innerHTML = `<strong>${user.full_name}</strong><div class="small text-muted">${user.username}</div>`;
           button.addEventListener('click', () => {
-            assignedInput.value = user.id;
-            techSearch.value = user.full_name;
+            let option = techniciansSelect.querySelector(`option[value="${user.id}"]`);
+            if (!option) {
+              option = new Option(user.full_name, user.id);
+              techniciansSelect.add(option);
+            }
+            selectedTechs.set(String(user.id), user.full_name);
+            techSearch.value = '';
+            syncTechnicians();
             techResults.classList.add('d-none');
           });
           techResults.appendChild(button);

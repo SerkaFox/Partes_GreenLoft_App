@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Max, Q
+from django.db.models import Max, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -70,12 +70,12 @@ def user_search(request):
 
 def _visible_tasks(user):
     role = get_user_role(user)
-    qs = Task.objects.select_related('created_by', 'assigned_to').prefetch_related('files')
+    qs = Task.objects.select_related('created_by', 'assigned_to').prefetch_related('files', 'technicians')
     if role == UserProfile.ROLE_ADMIN:
         return qs
     if role == UserProfile.ROLE_MANAGER:
         return qs.filter(created_by=user)
-    return qs.filter(assigned_to=user)
+    return qs.filter(Q(assigned_to=user) | Q(technicians=user)).distinct()
 
 
 def _active_statuses():
@@ -101,6 +101,18 @@ def _get_visible_task(user, pk):
 
 def _add_event(task, user, event_type, comment=''):
     return TaskEvent.objects.create(task=task, user=user, event_type=event_type, comment=comment)
+
+
+def _selected_technicians(form):
+    return list(form.cleaned_data.get('technicians') or [])
+
+
+def _sync_task_technicians(task, technicians):
+    task.technicians.set(technicians)
+    primary = technicians[0] if technicians else None
+    if task.assigned_to_id != (primary.id if primary else None):
+        task.assigned_to = primary
+        task.save(update_fields=['assigned_to', 'updated_at'])
 
 
 def _save_uploaded_files(task, user, files, comment=''):
@@ -147,15 +159,15 @@ def dashboard(request):
     if role in {UserProfile.ROLE_ADMIN, UserProfile.ROLE_MANAGER}:
         today = timezone.localdate()
         technician_scope = active_tasks.filter(Q(created_at__date=today) | Q(updated_at__date=today) | Q(status__in=active_statuses))
-        context['technicians'] = (
-            _technicians()
-            .filter(assigned_work_tasks__in=technician_scope)
-            .annotate(
-                active_tasks=Count('assigned_work_tasks', filter=Q(assigned_work_tasks__in=technician_scope), distinct=True),
-                last_activity=Max('assigned_work_tasks__updated_at', filter=Q(assigned_work_tasks__in=technician_scope)),
-            )
-            .distinct()
-        )
+        technicians = []
+        for technician in _technicians():
+            tech_tasks = technician_scope.filter(Q(assigned_to=technician) | Q(technicians=technician)).distinct()
+            active_count = tech_tasks.count()
+            if active_count:
+                technician.active_tasks = active_count
+                technician.last_activity = tech_tasks.aggregate(last_activity=Max('updated_at'))['last_activity']
+                technicians.append(technician)
+        context['technicians'] = technicians
     return render(request, 'workdocs/dashboard.html', context)
 
 
@@ -164,7 +176,7 @@ def technician_detail(request, pk):
     if not (is_admin(request.user) or is_manager(request.user)):
         raise PermissionDenied
     technician = get_object_or_404(_technicians(), pk=pk)
-    qs = _visible_tasks(request.user).filter(assigned_to=technician).select_related('created_by', 'assigned_to')
+    qs = _visible_tasks(request.user).filter(Q(assigned_to=technician) | Q(technicians=technician)).select_related('created_by', 'assigned_to').distinct()
     active_tasks = qs.filter(status__in=_active_statuses())
     events = TaskEvent.objects.filter(task__in=qs).select_related('task', 'user')[:80]
     return render(request, 'workdocs/technician_detail.html', {
@@ -194,7 +206,7 @@ def task_list(request):
     if documents:
         qs = qs.filter(files__isnull=False).distinct()
     if technician and (is_admin(request.user) or is_manager(request.user)):
-        qs = qs.filter(assigned_to_id=technician)
+        qs = qs.filter(Q(assigned_to_id=technician) | Q(technicians__id=technician)).distinct()
     if q:
         qs = qs.filter(Q(title__icontains=q) | Q(address__icontains=q) | Q(description__icontains=q))
     return render(request, 'workdocs/task_list.html', {
@@ -215,12 +227,14 @@ def task_create(request):
     if request.method == 'POST' and form.is_valid():
         task = form.save(commit=False)
         task.created_by = request.user
+        technicians = _selected_technicians(form)
         if task.assigned_to and task.status == Task.STATUS_NUEVA:
             task.status = Task.STATUS_ASIGNADA
         task.save()
+        _sync_task_technicians(task, technicians)
         _add_event(task, request.user, TaskEvent.EVENT_CREATED, 'Tarea creada.')
-        if task.assigned_to:
-            _add_event(task, request.user, TaskEvent.EVENT_ASSIGNED, f'Técnico asignado: {_display_user(task.assigned_to)}.')
+        if technicians:
+            _add_event(task, request.user, TaskEvent.EVENT_ASSIGNED, f'Técnicos asignados: {", ".join(_display_user(user) for user in technicians)}.')
         _save_uploaded_files(task, request.user, request.FILES.getlist('files'), request.POST.get('comment', ''))
         _save_description_audio(task, request.user, request.FILES.get('description_audio'))
         messages.success(request, 'Guardado correctamente.')
@@ -240,9 +254,15 @@ def task_detail(request, pk):
             form = TaskForm(request.POST, instance=task, role=role)
             if form.is_valid():
                 old_assignee = task.assigned_to_id
-                task = form.save()
-                if old_assignee != task.assigned_to_id and task.assigned_to:
-                    _add_event(task, request.user, TaskEvent.EVENT_ASSIGNED, f'Técnico asignado: {_display_user(task.assigned_to)}.')
+                old_technicians = set(task.technicians.values_list('id', flat=True))
+                task = form.save(commit=False)
+                technicians = _selected_technicians(form)
+                task.save()
+                _sync_task_technicians(task, technicians)
+                new_technicians = {user.id for user in technicians}
+                if old_assignee != task.assigned_to_id or old_technicians != new_technicians:
+                    label = ', '.join(_display_user(user) for user in technicians) if technicians else 'Sin asignar'
+                    _add_event(task, request.user, TaskEvent.EVENT_ASSIGNED, f'Técnicos asignados: {label}.')
                 _add_event(task, request.user, TaskEvent.EVENT_STATUS, f'Estado actualizado: {task.get_status_display()}.')
                 _save_description_audio(task, request.user, request.FILES.get('description_audio'))
                 messages.success(request, 'Guardado correctamente.')
@@ -337,13 +357,10 @@ def user_list(request):
         messages.success(request, 'Usuario creado correctamente.')
         return redirect('workdocs_users')
     active_statuses = _active_statuses()
-    users = (
-        User.objects.select_related('work_profile')
-        .annotate(active_task_count=Count('assigned_work_tasks', filter=Q(assigned_work_tasks__status__in=active_statuses), distinct=True))
-        .order_by('username')
-    )
+    users = User.objects.select_related('work_profile').order_by('username')
     for item in users:
         _ensure_profile(item)
+        item.active_task_count = Task.objects.filter(Q(assigned_to=item) | Q(technicians=item), status__in=active_statuses).distinct().count()
     return render(request, 'workdocs/users.html', {'users': users, 'form': form})
 
 
@@ -386,7 +403,7 @@ def user_tasks(request, pk):
         raise PermissionDenied
     user = get_object_or_404(User.objects.select_related('work_profile'), pk=pk)
     profile_obj = _ensure_profile(user)
-    tasks = _visible_tasks(request.user).filter(assigned_to=user).select_related('created_by', 'assigned_to')
+    tasks = _visible_tasks(request.user).filter(Q(assigned_to=user) | Q(technicians=user)).select_related('created_by', 'assigned_to').distinct()
     active_tasks = tasks.filter(status__in=_active_statuses())
     finished_tasks = tasks.filter(status__in=[Task.STATUS_FINALIZADA, Task.STATUS_CANCELADA])
     events = TaskEvent.objects.filter(task__in=tasks).select_related('task', 'user')[:80]

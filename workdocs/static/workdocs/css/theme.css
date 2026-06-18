@@ -253,6 +253,24 @@ h1, h2, h3, h4, h5 { color: var(--wl-text); }
   color: #cffff0;
   font-size: .82rem;
 }
+.technician-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(138, 255, 190, .38);
+  border-radius: 999px;
+  padding: 5px 8px 5px 10px;
+  background: rgba(73, 201, 133, .16);
+  color: #d9ffec;
+  font-size: .88rem;
+}
+.technician-chip button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  line-height: 1;
+  padding: 0 2px;
+}
 
 .user-result,
 .selected-user,

@@ -78,6 +78,12 @@ class Task(models.Model):
         blank=True,
         null=True,
     )
+    technicians = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name='technician_tasks',
+        blank=True,
+        limit_choices_to={'work_profile__role': UserProfile.ROLE_TECHNICIAN},
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     started_at = models.DateTimeField(blank=True, null=True)
@@ -99,6 +105,13 @@ class Task(models.Model):
     @property
     def is_open(self):
         return self.status not in {self.STATUS_FINALIZADA, self.STATUS_CANCELADA}
+
+    @property
+    def assigned_technicians(self):
+        technicians = list(self.technicians.all())
+        if self.assigned_to and self.assigned_to not in technicians:
+            technicians.insert(0, self.assigned_to)
+        return technicians
 
 
 class TaskFile(models.Model):
