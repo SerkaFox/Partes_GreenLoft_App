@@ -309,7 +309,7 @@ def profile(request):
 
 @login_required(login_url='/panel/login/')
 def user_list(request):
-    if not is_admin(request.user):
+    if not (is_admin(request.user) or is_manager(request.user)):
         raise PermissionDenied
     form = UserCreateForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():

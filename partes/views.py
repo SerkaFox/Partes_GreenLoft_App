@@ -3,13 +3,16 @@ import json
 import re
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
+from functools import wraps
 from io import BytesIO, StringIO
 from pathlib import Path
 
 from django.conf import settings
+from django.apps import apps
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.core.mail import EmailMessage
 from django.db.models import Q
@@ -28,12 +31,45 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from .forms import PanelLoginForm, ParteTrabajoForm, ProyectoForm, TecnicoForm, VehiculoForm
 from .models import ParteTrabajo, ParteTrabajoFoto, Proyecto, Tecnico, Vehiculo
 from .services.google_sheets import append_parte_to_google_sheet
-from workdocs.decorators import admin_or_manager_required, technician_redirect_if_panel
 
 SPECIAL_COMPANEROS = ['Sin acompañante', 'Tecnico de practicas']
 MAX_PHOTOS = 8
 MAX_PHOTO_SIZE = 12 * 1024 * 1024
 ALLOWED_PHOTO_TYPES = {'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'}
+
+
+def _panel_role(user):
+    if not user.is_authenticated:
+        return ''
+    if user.is_superuser:
+        return 'admin'
+    try:
+        UserProfile = apps.get_model('workdocs', 'UserProfile')
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        return profile.role
+    except Exception:  # noqa: BLE001 - panel must stay available if optional role lookup fails.
+        return ''
+
+
+def technician_redirect_if_panel(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if request.user.is_authenticated and _panel_role(request.user) == 'technician':
+            return redirect('workdocs_dashboard')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def admin_or_manager_required(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        role = _panel_role(request.user)
+        if role in {'admin', 'manager'}:
+            return view_func(request, *args, **kwargs)
+        if role == 'technician':
+            return redirect('workdocs_dashboard')
+        raise PermissionDenied
+    return wrapper
 
 
 def index(request):

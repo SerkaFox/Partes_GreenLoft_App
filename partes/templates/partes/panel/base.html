@@ -21,7 +21,7 @@
     <a class="navbar-brand" href="{% url 'panel_dashboard' %}">Gestión de Partes</a>
     {% if request.user.is_authenticated %}
     <div class="navbar-nav me-auto">
-      {% if request.user.is_superuser or request.user.work_profile.role != 'technician' %}
+      {% if role == 'admin' or role == 'manager' or request.user.is_superuser %}
       <a class="nav-link" href="{% url 'panel_dashboard' %}">Dashboard</a>
       <a class="nav-link" href="{% url 'panel_tecnicos' %}">Técnicos</a>
       <a class="nav-link" href="{% url 'panel_vehiculos' %}">Vehículos</a>

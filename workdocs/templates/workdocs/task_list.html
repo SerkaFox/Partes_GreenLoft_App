@@ -36,7 +36,7 @@
         <div>
           <div class="fw-semibold">{{ task.title }}</div>
           <div class="compact-meta">{{ task.address|default:'Sin dirección' }}</div>
-          <div class="compact-meta">Técnico: {{ task.assigned_to.get_full_name|default:task.assigned_to.username|default:'Sin asignar' }}</div>
+          <div class="compact-meta">Técnico: {% if task.assigned_to %}{{ task.assigned_to.get_full_name|default:task.assigned_to.username }}{% else %}Sin asignar{% endif %}</div>
         </div>
         <div class="text-end">{% include 'workdocs/partials_status.html' with task=task %}</div>
       </div>
