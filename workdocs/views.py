@@ -120,6 +120,7 @@ def _with_comment_count(qs):
     return qs.annotate(
         comment_count=Count('events', filter=Q(events__event_type=TaskEvent.EVENT_COMMENT), distinct=True),
         voice_count=Count('voice_reports', filter=Q(voice_reports__report_type=TaskVoiceReport.TYPE_REPORT), distinct=True),
+        file_count=Count('files', distinct=True),
     )
 
 
@@ -175,6 +176,16 @@ def _chat_items(task, viewer):
             'user_url': _task_user_url(report.technician, viewer),
             'report': report,
         })
+    files = task.files.select_related('uploaded_by')
+    for item in files:
+        _ensure_profile(item.uploaded_by)
+        items.append({
+            'kind': 'file',
+            'created_at': item.created_at,
+            'user': item.uploaded_by,
+            'user_url': _task_user_url(item.uploaded_by, viewer),
+            'file': item,
+        })
     return sorted(items, key=lambda item: item['created_at'])
 
 
@@ -214,19 +225,27 @@ def _sync_task_technicians(task, technicians):
 
 def _save_uploaded_files(task, user, files, comment=''):
     saved = 0
+    voice_saved = 0
     for uploaded in files:
+        file_type = detect_file_type(uploaded)
+        if file_type == TaskFile.TYPE_AUDIO:
+            TaskVoiceReport.objects.create(task=task, technician=user, audio_file=uploaded)
+            voice_saved += 1
+            continue
         TaskFile.objects.create(
             task=task,
             uploaded_by=user,
             file=uploaded,
-            file_type=detect_file_type(uploaded),
+            file_type=file_type,
             original_name=uploaded.name[:255],
             comment=comment,
         )
         saved += 1
     if saved:
         _add_event(task, user, TaskEvent.EVENT_FILE, f'{saved} archivo(s) subido(s).')
-    return saved
+    if voice_saved:
+        _add_event(task, user, TaskEvent.EVENT_AUDIO, f'{voice_saved} audio(s) subido(s).')
+    return saved + voice_saved
 
 
 def _save_description_audio(task, user, uploaded):

@@ -74,7 +74,7 @@
       </div>
       <div class="card-body task-comments {% if chat_items|length > 3 %}task-comments-scroll{% endif %}">
         {% for item in chat_items %}
-        <div class="task-comment" id="{% if item.kind == 'comment' %}comment-{{ item.event.pk }}{% else %}voice-{{ item.report.pk }}{% endif %}">
+        <div class="task-comment" id="{% if item.kind == 'comment' %}comment-{{ item.event.pk }}{% elif item.kind == 'voice' %}voice-{{ item.report.pk }}{% else %}file-{{ item.file.pk }}{% endif %}">
           {% if item.kind == 'comment' and item.event.parent_event %}
           <a class="comment-reply-context text-decoration-none" href="#comment-{{ item.event.parent_event.pk }}">
             Respuesta a {{ item.event.parent_event.user.get_full_name|default:item.event.parent_event.user.username }}: {{ item.event.parent_event.comment|truncatechars:90 }}
@@ -116,7 +116,7 @@
               <button class="emoji-button" name="emoji" value="🙏" type="submit">🙏</button>
             </form>
           </div>
-          {% else %}
+          {% elif item.kind == 'voice' %}
           <div class="chat-voice-message mt-2">
             <audio class="chat-audio" controls preload="metadata"><source src="{{ item.report.audio_file.url }}"></audio>
             <div class="chat-transcript">
@@ -132,35 +132,56 @@
               {% endif %}
             </div>
           </div>
+          {% else %}
+          <div class="chat-file-message mt-2">
+            {% if item.file.is_image %}
+            <a href="{{ item.file.file.url }}" target="_blank" rel="noopener"><img class="task-thumb" src="{{ item.file.file.url }}" alt="{{ item.file.original_name }}"></a>
+            {% elif item.file.is_video %}
+            <video controls class="w-100 task-thumb"><source src="{{ item.file.file.url }}"></video>
+            {% elif item.file.is_audio %}
+            <audio class="chat-audio" controls preload="metadata"><source src="{{ item.file.file.url }}"></audio>
+            {% elif item.file.file_type == 'pdf' %}
+            <div class="p-3 text-center bg-light rounded">PDF</div>
+            {% else %}
+            <div class="p-3 text-center bg-light rounded">Documento</div>
+            {% endif %}
+            <div class="small fw-semibold mt-2 text-break">{{ item.file.original_name|default:item.file.file.name }}</div>
+            {% if item.file.comment %}<div class="small mt-1">{{ item.file.comment }}</div>{% endif %}
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              {% if item.file.file_type == 'pdf' %}
+              <button class="btn btn-sm btn-outline-primary pdf-preview-button" type="button" data-pdf-url="{{ item.file.file.url }}" data-pdf-title="{{ item.file.original_name|default:item.file.file.name }}">Vista previa</button>
+              {% elif not item.file.is_image and not item.file.is_audio and not item.file.is_video %}
+              <span class="compact-meta align-self-center">Vista previa no disponible</span>
+              {% endif %}
+              <a class="btn btn-sm btn-outline-primary" href="{{ item.file.file.url }}" download>Descargar</a>
+            </div>
+          </div>
           {% endif %}
         </div>
         {% empty %}
         <div class="compact-meta">No hay mensajes todavía.</div>
         {% endfor %}
       </div>
-      <form method="post" id="comment-form">
+      <form method="post" enctype="multipart/form-data" id="chat-composer-form">
         {% csrf_token %}
-        <input type="hidden" name="action" value="comment">
+        <input type="hidden" name="action" value="comment" id="chat-action">
         <input type="hidden" name="reply_to" id="comment-reply-to">
+        <input type="file" name="files" class="visually-hidden" id="chat-file-input" multiple accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv">
+        <input type="file" name="audio_file" class="visually-hidden" accept="audio/*" required id="id_audio_file">
         <div class="card-body border-top">
           <div class="reply-preview d-none mb-2" id="comment-reply-preview">
             <div class="compact-meta">Respondiendo a <span id="comment-reply-author"></span></div>
             <div class="small text-white" id="comment-reply-text"></div>
             <button class="btn btn-sm btn-outline-primary mt-2" type="button" id="comment-reply-clear">Cancelar respuesta</button>
           </div>
-          {{ comment_form.comment }}
-        </div>
-        <div class="card-footer bg-white"><button class="btn btn-outline-primary w-100">Añadir comentario</button></div>
-      </form>
-      <form method="post" enctype="multipart/form-data" id="voice-upload-form">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="voice">
-        <input type="file" name="audio_file" class="visually-hidden" accept="audio/*" required id="id_audio_file">
-        <div class="card-footer bg-white border-top d-flex flex-wrap gap-2 align-items-center">
-          <label class="btn btn-sm btn-outline-primary mb-0" for="id_audio_file">Subir audio</label>
-          <button class="btn btn-sm btn-outline-primary" type="button" id="record-audio">Grabar voz</button>
-          <button class="btn btn-sm btn-outline-primary d-none" type="button" id="stop-audio">Parar</button>
-          <span class="compact-meta" id="record-status">El audio se sube automáticamente.</span>
+          <div class="chat-composer">
+            <label class="chat-icon-button" for="chat-file-input" title="Adjuntar archivo">+</label>
+            {{ comment_form.comment }}
+            <button class="chat-icon-button" type="button" id="record-audio" title="Grabar voz">🎙</button>
+            <button class="chat-icon-button d-none" type="button" id="stop-audio" title="Parar">■</button>
+            <button class="chat-send-button" type="submit" title="Enviar">Enviar</button>
+          </div>
+          <div class="compact-meta mt-2" id="record-status"></div>
         </div>
       </form>
     </div>
@@ -450,7 +471,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const replyPreview = document.getElementById('comment-reply-preview');
   const replyAuthor = document.getElementById('comment-reply-author');
   const replyText = document.getElementById('comment-reply-text');
-  const commentTextarea = document.querySelector('#comment-form textarea');
+  const chatForm = document.getElementById('chat-composer-form');
+  const chatAction = document.getElementById('chat-action');
+  const commentTextarea = document.querySelector('#chat-composer-form textarea');
+  const chatFileInput = document.getElementById('chat-file-input');
+  const voiceInput = document.getElementById('id_audio_file');
+  const voiceStatus = document.getElementById('record-status');
+  chatForm?.addEventListener('submit', () => {
+    if (chatAction) chatAction.value = 'comment';
+  });
+  commentTextarea?.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' || event.shiftKey) return;
+    event.preventDefault();
+    if (!commentTextarea.value.trim()) return;
+    if (chatAction) chatAction.value = 'comment';
+    chatForm?.requestSubmit();
+  });
+  chatFileInput?.addEventListener('change', async () => {
+    if (!chatFileInput.files.length || !chatForm) return;
+    if (chatAction) chatAction.value = 'upload_files';
+    const ok = await submitForm(chatForm, voiceStatus, 'Archivo subido. Actualizando lista...', 'No se pudo subir el archivo', 'Subiendo archivo...');
+    if (ok) window.location.reload();
+  });
   document.querySelectorAll('.comment-reply-button').forEach(button => {
     button.addEventListener('click', () => {
       if (!replyTo || !replyPreview || !replyAuthor || !replyText) return;
@@ -466,12 +508,10 @@ document.addEventListener('DOMContentLoaded', () => {
     replyPreview?.classList.add('d-none');
   });
 
-  const voiceForm = document.getElementById('voice-upload-form');
-  const voiceInput = document.getElementById('id_audio_file');
-  const voiceStatus = document.getElementById('record-status');
   voiceInput?.addEventListener('change', async () => {
     if (!voiceInput.files.length) return;
-    const ok = await submitForm(voiceForm, voiceStatus, 'Audio subido. Actualizando lista...', 'No se pudo subir el audio', 'Subiendo audio...');
+    if (chatAction) chatAction.value = 'voice';
+    const ok = await submitForm(chatForm, voiceStatus, 'Audio subido. Actualizando lista...', 'No se pudo subir el audio', 'Subiendo audio...');
     if (ok) window.location.reload();
   });
 });
