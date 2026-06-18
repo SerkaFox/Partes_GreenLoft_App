@@ -144,6 +144,10 @@ def _save_description_audio(task, user, uploaded):
     return report
 
 
+def _wants_json(request):
+    return request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
+
 @login_required(login_url='/panel/login/')
 def dashboard(request):
     role = get_user_role(request.user)
@@ -268,14 +272,24 @@ def task_detail(request, pk):
                     _add_event(task, request.user, TaskEvent.EVENT_ASSIGNED, f'Técnicos asignados: {label}.')
                 _add_event(task, request.user, TaskEvent.EVENT_STATUS, f'Estado actualizado: {task.get_status_display()}.')
                 _save_description_audio(task, request.user, request.FILES.get('description_audio'))
+                if _wants_json(request):
+                    return JsonResponse({'ok': True, 'message': 'Guardado automáticamente.'})
                 messages.success(request, 'Guardado correctamente.')
                 return redirect('workdocs_task_detail', pk=task.pk)
+            if _wants_json(request):
+                return JsonResponse({'ok': False, 'errors': form.errors}, status=400)
+            messages.error(request, 'No se pudo guardar la tarea. Revisa los campos.')
         elif action == 'upload_files':
-            file_form = TaskFileForm(request.POST, request.FILES)
-            if file_form.is_valid():
-                count = _save_uploaded_files(task, request.user, request.FILES.getlist('files'), file_form.cleaned_data.get('comment', ''))
+            uploaded_files = request.FILES.getlist('files')
+            if uploaded_files:
+                count = _save_uploaded_files(task, request.user, uploaded_files, request.POST.get('comment', ''))
+                if _wants_json(request):
+                    return JsonResponse({'ok': True, 'message': f'{count} archivo(s) subido(s).'})
                 messages.success(request, f'{count} archivo(s) subido(s).')
                 return redirect('workdocs_task_detail', pk=task.pk)
+            if _wants_json(request):
+                return JsonResponse({'ok': False, 'errors': {'files': ['No se ha seleccionado ningún archivo.']}}, status=400)
+            messages.error(request, 'No se pudo subir el archivo: no se ha seleccionado ningún archivo.')
         elif action == 'comment':
             comment_form = CommentForm(request.POST)
             if comment_form.is_valid():
@@ -291,8 +305,13 @@ def task_detail(request, pk):
                 report.save()
                 _add_event(task, request.user, TaskEvent.EVENT_AUDIO, 'Informe de voz subido.')
                 transcribe_audio(report.pk)
+                if _wants_json(request):
+                    return JsonResponse({'ok': True, 'message': 'Audio subido correctamente.'})
                 messages.success(request, 'Audio subido correctamente.')
                 return redirect('workdocs_task_detail', pk=task.pk)
+            if _wants_json(request):
+                return JsonResponse({'ok': False, 'errors': voice_form.errors}, status=400)
+            messages.error(request, f'No se pudo subir el audio: {voice_form.errors.as_text()}')
 
     return render(request, 'workdocs/task_detail.html', {
         'task': task,
@@ -336,6 +355,25 @@ def technician_status(request, pk, action):
     _add_event(task, request.user, TaskEvent.EVENT_STATUS, labels[action])
     messages.success(request, labels[action])
     return redirect('workdocs_task_detail', pk=task.pk)
+
+
+@login_required(login_url='/panel/login/')
+@require_POST
+def task_quick_status(request, pk):
+    task = _get_visible_task(request.user, pk)
+    if not _can_edit_task(request.user, task):
+        raise PermissionDenied
+    status = request.POST.get('status')
+    valid_statuses = {value for value, _label in Task.STATUS_CHOICES}
+    if status not in valid_statuses:
+        messages.error(request, 'Estado no válido.')
+        return redirect(request.POST.get('next') or 'workdocs_dashboard')
+    if task.status != status:
+        task.status = status
+        task.save(update_fields=['status', 'updated_at'])
+        _add_event(task, request.user, TaskEvent.EVENT_STATUS, f'Estado actualizado: {task.get_status_display()}.')
+        messages.success(request, 'Estado actualizado correctamente.')
+    return redirect(request.POST.get('next') or 'workdocs_dashboard')
 
 
 @login_required(login_url='/panel/login/')

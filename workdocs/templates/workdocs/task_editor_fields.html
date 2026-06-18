@@ -11,7 +11,16 @@
     </div>
     <div class="col-md-4">
       <label class="form-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
-      {{ form.status }}
+      <div class="d-none">{{ form.status }}</div>
+      <div class="status-button-group d-flex flex-wrap gap-2" data-status-select="{{ form.status.id_for_label }}">
+        <button class="btn btn-sm {% if form.instance.status == 'NUEVA' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-status-value="NUEVA">Nueva</button>
+        <button class="btn btn-sm {% if form.instance.status == 'ASIGNADA' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-status-value="ASIGNADA">Asignada</button>
+        <button class="btn btn-sm {% if form.instance.status == 'EN_CAMINO' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-status-value="EN_CAMINO">En camino</button>
+        <button class="btn btn-sm {% if form.instance.status == 'EN_OBJETO' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-status-value="EN_OBJETO">En objeto</button>
+        <button class="btn btn-sm {% if form.instance.status == 'EN_PROCESO' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-status-value="EN_PROCESO">En proceso</button>
+        <button class="btn btn-sm {% if form.instance.status == 'PENDIENTE_REVISION' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-status-value="PENDIENTE_REVISION">Revisión</button>
+        <button class="btn btn-sm {% if form.instance.status == 'FINALIZADA' %}btn-success{% else %}btn-outline-success{% endif %}" type="button" data-status-value="FINALIZADA">Finalizada</button>
+      </div>
       {% for error in form.status.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
     </div>
 

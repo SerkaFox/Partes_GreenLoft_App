@@ -24,11 +24,13 @@
   </div>
   <div class="list-group list-group-flush">
     {% for task in tasks %}
-    <a class="list-group-item list-group-item-action task-card task-active {% if task.status == 'NUEVA' %}task-new-pulse{% endif %}" href="{% url 'workdocs_task_detail' task.pk %}">
+    <div class="list-group-item task-card task-active {% if task.status == 'NUEVA' %}task-new-pulse{% endif %}">
       <div class="d-flex justify-content-between gap-2">
         <div>
-          <div class="fw-semibold task-title">{{ task.title }}</div>
-          <div class="compact-meta">{{ task.address|default:'Sin dirección' }}</div>
+          <a class="text-decoration-none task-title-link" href="{% url 'workdocs_task_detail' task.pk %}">
+            <div class="fw-semibold task-title">{{ task.title }}</div>
+            <div class="compact-meta">{{ task.address|default:'Sin dirección' }}</div>
+          </a>
           <div class="compact-meta">Técnicos: {% for technician in task.assigned_technicians %}{{ technician.get_full_name|default:technician.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</div>
         </div>
         <div class="text-end">
@@ -36,7 +38,19 @@
           {% if task.status == 'NUEVA' %}<div><span class="badge text-bg-warning mt-2">Nueva</span></div>{% endif %}
         </div>
       </div>
-    </a>
+      {% if role == 'admin' or role == 'manager' %}
+      <form class="quick-status-form d-flex flex-wrap gap-2 mt-3" method="post" action="{% url 'workdocs_task_quick_status' task.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'workdocs_dashboard' %}">
+        <button class="btn btn-sm {% if task.status == 'ASIGNADA' %}btn-primary{% else %}btn-outline-primary{% endif %}" name="status" value="ASIGNADA" type="submit">Asignada</button>
+        <button class="btn btn-sm {% if task.status == 'EN_CAMINO' %}btn-primary{% else %}btn-outline-primary{% endif %}" name="status" value="EN_CAMINO" type="submit">En camino</button>
+        <button class="btn btn-sm {% if task.status == 'EN_OBJETO' %}btn-primary{% else %}btn-outline-primary{% endif %}" name="status" value="EN_OBJETO" type="submit">En objeto</button>
+        <button class="btn btn-sm {% if task.status == 'EN_PROCESO' %}btn-primary{% else %}btn-outline-primary{% endif %}" name="status" value="EN_PROCESO" type="submit">En proceso</button>
+        <button class="btn btn-sm {% if task.status == 'PENDIENTE_REVISION' %}btn-primary{% else %}btn-outline-primary{% endif %}" name="status" value="PENDIENTE_REVISION" type="submit">Revisión</button>
+        <button class="btn btn-sm {% if task.status == 'FINALIZADA' %}btn-success{% else %}btn-outline-success{% endif %}" name="status" value="FINALIZADA" type="submit">Finalizada</button>
+      </form>
+      {% endif %}
+    </div>
     {% empty %}
     <div class="list-group-item compact-meta">No hay tareas activas.</div>
     {% endfor %}

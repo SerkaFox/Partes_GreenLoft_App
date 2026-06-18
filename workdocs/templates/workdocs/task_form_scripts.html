@@ -55,6 +55,22 @@ function initTaskEditors() {
     const techSearch = editor.querySelector('.technician-search');
     const techResults = editor.querySelector('.technician-results');
     const mapEl = editor.querySelector('.map-box');
+    const statusSelectId = editor.querySelector('.status-button-group')?.dataset.statusSelect;
+    const statusSelect = statusSelectId ? document.getElementById(statusSelectId) : null;
+    editor.querySelectorAll('[data-status-value]').forEach(button => {
+      button.addEventListener('click', () => {
+        if (!statusSelect) return;
+        statusSelect.value = button.dataset.statusValue;
+        editor.querySelectorAll('[data-status-value]').forEach(item => {
+          const isFinal = item.dataset.statusValue === 'FINALIZADA';
+          item.classList.toggle('btn-primary', item === button && !isFinal);
+          item.classList.toggle('btn-success', item === button && isFinal);
+          item.classList.toggle('btn-outline-primary', item !== button && !isFinal);
+          item.classList.toggle('btn-outline-success', item !== button && isFinal);
+        });
+        statusSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    });
     const start = [
       parseFloat(latInput.value || editor.dataset.lat || '43.2630'),
       parseFloat(lngInput.value || editor.dataset.lng || '-2.9350')
@@ -68,6 +84,8 @@ function initTaskEditors() {
     const setPoint = latlng => {
       latInput.value = Number(latlng.lat).toFixed(7);
       lngInput.value = Number(latlng.lng).toFixed(7);
+      latInput.dispatchEvent(new Event('change', { bubbles: true }));
+      lngInput.dispatchEvent(new Event('change', { bubbles: true }));
       marker.setLatLng(latlng);
       map.setView(latlng, 16);
     };
@@ -100,6 +118,8 @@ function initTaskEditors() {
         option.selected = selectedTechs.has(option.value);
       });
       assignedInput.value = selectedTechs.size ? [...selectedTechs.keys()][0] : '';
+      assignedInput.dispatchEvent(new Event('change', { bubbles: true }));
+      techniciansSelect.dispatchEvent(new Event('change', { bubbles: true }));
       selectedTechnicians.innerHTML = '';
       selectedTechs.forEach((name, id) => {
         const badge = document.createElement('span');
@@ -195,6 +215,7 @@ function initTaskEditors() {
       const data = new DataTransfer();
       data.items.add(recordedFile);
       audioInput.files = data.files;
+      audioInput.dispatchEvent(new Event('change', { bubbles: true }));
       status.textContent = 'Audio listo para guardar.';
     });
   });
