@@ -136,6 +136,13 @@ def _add_event(task, user, event_type, comment=''):
     return TaskEvent.objects.create(task=task, user=user, event_type=event_type, comment=comment)
 
 
+def _comment_user_url(user):
+    role = get_user_role(user)
+    if role == UserProfile.ROLE_TECHNICIAN:
+        return reverse('workdocs_technician_detail', args=[user.pk])
+    return reverse('workdocs_user_edit', args=[user.pk])
+
+
 def _events_for_display(task):
     events = []
     seen_status = set()
@@ -342,7 +349,7 @@ def task_detail(request, pk):
         elif action == 'upload_files':
             uploaded_files = request.FILES.getlist('files')
             if uploaded_files:
-                count = _save_uploaded_files(task, request.user, uploaded_files, request.POST.get('comment', ''))
+                count = _save_uploaded_files(task, request.user, uploaded_files, request.POST.get('comment') if request.POST.get('with_file_comment') else '')
                 if _wants_json(request):
                     return JsonResponse({'ok': True, 'message': f'{count} archivo(s) subido(s).'})
                 messages.success(request, f'{count} archivo(s) subido(s).')
@@ -353,7 +360,17 @@ def task_detail(request, pk):
         elif action == 'comment':
             comment_form = CommentForm(request.POST)
             if comment_form.is_valid():
-                _add_event(task, request.user, TaskEvent.EVENT_COMMENT, comment_form.cleaned_data['comment'])
+                parent = None
+                reply_to = request.POST.get('reply_to')
+                if reply_to:
+                    parent = task.events.filter(pk=reply_to, event_type=TaskEvent.EVENT_COMMENT).first()
+                TaskEvent.objects.create(
+                    task=task,
+                    user=request.user,
+                    event_type=TaskEvent.EVENT_COMMENT,
+                    comment=comment_form.cleaned_data['comment'],
+                    parent_event=parent,
+                )
                 messages.success(request, 'Comentario añadido.')
                 return redirect('workdocs_task_detail', pk=task.pk)
         elif action == 'voice':
@@ -372,9 +389,12 @@ def task_detail(request, pk):
                 return JsonResponse({'ok': False, 'errors': voice_form.errors}, status=400)
             messages.error(request, f'No se pudo subir el audio: {voice_form.errors.as_text()}')
 
-    comments = list(task.events.filter(event_type=TaskEvent.EVENT_COMMENT).select_related('user')[:80])
+    comments = list(task.events.filter(event_type=TaskEvent.EVENT_COMMENT).select_related('user', 'parent_event', 'parent_event__user')[:80])
     for event in comments:
         _ensure_profile(event.user)
+        event.user_url = _comment_user_url(event.user) if _can_manage_users(request.user) else ''
+        if event.parent_event_id:
+            _ensure_profile(event.parent_event.user)
     return render(request, 'workdocs/task_detail.html', {
         'task': task,
         'map_coords': f'{task.latitude},{task.longitude}' if task.latitude and task.longitude else '',
@@ -387,9 +407,25 @@ def task_detail(request, pk):
         'files': task.files.select_related('uploaded_by'),
         'events': _events_for_display(task),
         'comments': comments,
+        'can_manage_users': _can_manage_users(request.user),
         'voice_reports': task.voice_reports.filter(report_type=TaskVoiceReport.TYPE_REPORT).select_related('technician'),
         'description_voice_reports': task.voice_reports.filter(report_type=TaskVoiceReport.TYPE_DESCRIPTION).select_related('technician'),
     })
+
+
+@login_required(login_url='/panel/login/')
+@require_POST
+def task_comment_reaction(request, pk, event_pk):
+    task = _get_visible_task(request.user, pk)
+    event = get_object_or_404(task.events.filter(event_type=TaskEvent.EVENT_COMMENT), pk=event_pk)
+    emoji = request.POST.get('emoji') or ''
+    if emoji not in {'👍', '✅', '👀', '🙏'}:
+        raise PermissionDenied
+    reactions = dict(event.reactions or {})
+    reactions[emoji] = int(reactions.get(emoji, 0)) + 1
+    event.reactions = reactions
+    event.save(update_fields=['reactions'])
+    return redirect('workdocs_task_detail', pk=task.pk)
 
 
 @login_required(login_url='/panel/login/')

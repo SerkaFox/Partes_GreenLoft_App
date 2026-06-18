@@ -214,8 +214,10 @@ class TaskEvent(models.Model):
 
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='events')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='task_events')
+    parent_event = models.ForeignKey('self', blank=True, null=True, on_delete=models.SET_NULL, related_name='replies')
     event_type = models.CharField(max_length=30, choices=EVENT_CHOICES)
     comment = models.TextField(blank=True)
+    reactions = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

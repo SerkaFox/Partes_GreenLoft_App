@@ -279,11 +279,42 @@ body.workdocs-theme .task-card:focus {
   display: grid;
   gap: 12px;
 }
+.task-comments-scroll {
+  max-height: 430px;
+  overflow-y: auto;
+}
 .task-comment {
   padding: 12px;
   border: 1px solid rgba(190, 235, 213, .22);
   border-radius: 8px;
   background: rgba(7, 20, 17, .5);
+}
+.comment-reply-context,
+.reply-preview {
+  display: block;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border-left: 3px solid var(--wl-accent);
+  border-radius: 8px;
+  background: rgba(73, 201, 133, .12);
+  color: var(--wl-text);
+}
+.comment-reaction-count,
+.emoji-button {
+  border: 1px solid rgba(190, 235, 213, .24);
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: rgba(7, 20, 17, .62);
+  color: var(--wl-text);
+  font-size: .86rem;
+}
+.emoji-button {
+  line-height: 1.4;
+}
+.emoji-button:hover,
+.emoji-button:focus {
+  border-color: rgba(138, 255, 190, .62);
+  background: rgba(73, 201, 133, .16);
 }
 .task-transcript {
   padding: 10px 12px;

@@ -25,7 +25,7 @@ def transcribe_audio(report_id):
         from faster_whisper import WhisperModel
 
         model = WhisperModel(_model_name(), device='cpu', compute_type='int8', download_root=str(_download_root()))
-        segments, _info = model.transcribe(report.audio_file.path, beam_size=1)
+        segments, _info = model.transcribe(report.audio_file.path, beam_size=1, language='es')
         transcript = ' '.join(segment.text.strip() for segment in segments if segment.text.strip()).strip()
         report.transcript_text = transcript
         report.transcript_status = TaskVoiceReport.TRANSCRIPT_DONE

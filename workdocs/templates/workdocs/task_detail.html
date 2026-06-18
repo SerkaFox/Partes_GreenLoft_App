@@ -59,6 +59,75 @@
       </div>
     </div>
 
+    <div class="card border-0 shadow-sm mb-3" id="task-comments">
+      <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+        <span>Comentarios</span>
+        {% if comments %}<span class="badge text-bg-secondary">{{ comments|length }}</span>{% endif %}
+      </div>
+      <div class="card-body task-comments {% if comments|length > 3 %}task-comments-scroll{% endif %}">
+        {% for comment in comments %}
+        <div class="task-comment" id="comment-{{ comment.pk }}">
+          {% if comment.parent_event %}
+          <a class="comment-reply-context text-decoration-none" href="#comment-{{ comment.parent_event.pk }}">
+            Respuesta a {{ comment.parent_event.user.get_full_name|default:comment.parent_event.user.username }}: {{ comment.parent_event.comment|truncatechars:90 }}
+          </a>
+          {% endif %}
+          <div class="d-flex justify-content-between gap-2 align-items-start">
+            <div class="d-flex gap-2 align-items-center min-w-0">
+              {% if comment.user.work_profile.avatar %}
+              <img class="avatar avatar-sm" src="{{ comment.user.work_profile.avatar.url }}" alt="{{ comment.user.get_full_name|default:comment.user.username }}">
+              {% else %}
+              {% firstof comment.user.first_name comment.user.username as comment_avatar_seed %}
+              <span class="avatar avatar-sm avatar-initials">{{ comment_avatar_seed|slice:":1"|upper }}</span>
+              {% endif %}
+              <div class="min-w-0">
+                {% if comment.user_url %}
+                <a class="fw-semibold text-white text-decoration-none" href="{{ comment.user_url }}">{{ comment.user.get_full_name|default:comment.user.username }}</a>
+                {% else %}
+                <div class="fw-semibold">{{ comment.user.get_full_name|default:comment.user.username }}</div>
+                {% endif %}
+                <div class="compact-meta">
+                  {% if comment.user.is_superuser %}Admin{% else %}{{ comment.user.work_profile.get_role_display|default:'Usuario' }}{% endif %}
+                </div>
+              </div>
+            </div>
+            <div class="compact-meta text-nowrap">{{ comment.created_at|date:'d/m/Y H:i' }}</div>
+          </div>
+          <div class="mt-2">{{ comment.comment|linebreaksbr }}</div>
+          <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+            <button class="btn btn-sm btn-outline-primary comment-reply-button" type="button" data-comment-id="{{ comment.pk }}" data-comment-author="{{ comment.user.get_full_name|default:comment.user.username }}" data-comment-text="{{ comment.comment|truncatechars:90 }}">Responder</button>
+            {% for emoji,count in comment.reactions.items %}
+            <span class="comment-reaction-count">{{ emoji }} {{ count }}</span>
+            {% endfor %}
+            <form class="d-inline-flex gap-1 comment-reactions" method="post" action="{% url 'workdocs_task_comment_reaction' task.pk comment.pk %}">
+              {% csrf_token %}
+              <button class="emoji-button" name="emoji" value="👍" type="submit">👍</button>
+              <button class="emoji-button" name="emoji" value="✅" type="submit">✅</button>
+              <button class="emoji-button" name="emoji" value="👀" type="submit">👀</button>
+              <button class="emoji-button" name="emoji" value="🙏" type="submit">🙏</button>
+            </form>
+          </div>
+        </div>
+        {% empty %}
+        <div class="compact-meta">No hay comentarios todavía.</div>
+        {% endfor %}
+      </div>
+      <form method="post" id="comment-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="comment">
+        <input type="hidden" name="reply_to" id="comment-reply-to">
+        <div class="card-body border-top">
+          <div class="reply-preview d-none mb-2" id="comment-reply-preview">
+            <div class="compact-meta">Respondiendo a <span id="comment-reply-author"></span></div>
+            <div class="small text-white" id="comment-reply-text"></div>
+            <button class="btn btn-sm btn-outline-primary mt-2" type="button" id="comment-reply-clear">Cancelar respuesta</button>
+          </div>
+          {{ comment_form.comment }}
+        </div>
+        <div class="card-footer bg-white"><button class="btn btn-outline-primary w-100">Añadir comentario</button></div>
+      </form>
+    </div>
+
     {% if can_edit_task %}
     <div class="card border-0 shadow-sm mb-3">
       <button class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center border-0" type="button" data-bs-toggle="collapse" data-bs-target="#task-edit-panel" aria-expanded="false" aria-controls="task-edit-panel">
@@ -111,26 +180,41 @@
 
   <div class="col-lg-4">
     <div class="card border-0 shadow-sm mb-3">
-      <div class="card-header bg-white fw-semibold">Subir archivo</div>
+      <div class="card-header bg-white fw-semibold">Materiales</div>
       <form method="post" enctype="multipart/form-data" id="file-upload-form" data-autosubmit="file">
         {% csrf_token %}
         <input type="hidden" name="action" value="upload_files">
         <div class="card-body">
-          <label class="form-label" for="{{ file_form.files.id_for_label }}">Archivos</label>
-          <input class="form-control multi-file-input" id="{{ file_form.files.id_for_label }}" name="files" type="file" multiple data-preview-target="#detail-file-preview">
+          <div class="d-flex flex-wrap gap-2">
+            <label class="btn btn-sm btn-outline-primary mb-0" for="{{ file_form.files.id_for_label }}">Subir archivo</label>
+            <label class="btn btn-sm btn-outline-primary mb-0" for="id_camera_file">Hacer foto</label>
+          </div>
+          <input class="visually-hidden multi-file-input" id="{{ file_form.files.id_for_label }}" name="files" type="file" multiple data-preview-target="#detail-file-preview">
+          <input class="visually-hidden multi-file-input" id="id_camera_file" name="files" type="file" accept="image/*" capture="environment" data-preview-target="#detail-file-preview">
           <div class="file-preview-grid mt-2" id="detail-file-preview"></div>
-          <div class="mt-3">{{ file_form.comment.label_tag }} {{ file_form.comment }}</div>
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="with-file-comment" name="with_file_comment" value="1">
+            <label class="form-check-label" for="with-file-comment">Añadir comentario</label>
+          </div>
+          <div class="mt-2 d-none" id="file-comment-field">{{ file_form.comment.label_tag }} {{ file_form.comment }}</div>
           <div class="compact-meta mt-2" id="file-upload-status">Se sube automáticamente al elegir archivos.</div>
         </div>
       </form>
     </div>
 
     <div class="card border-0 shadow-sm mb-3" id="task-files">
-      <div class="card-header bg-white fw-semibold">Archivos</div>
+      <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center gap-2">
+        <span>Archivos</span>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Filtrar archivos">
+          <button class="btn btn-outline-primary active" type="button" data-file-filter="all">Todos</button>
+          <button class="btn btn-outline-primary" type="button" data-file-filter="technician">Técnico</button>
+          <button class="btn btn-outline-primary" type="button" data-file-filter="admin">Admin</button>
+        </div>
+      </div>
       <div class="card-body">
         <div class="row g-3">
           {% for item in files %}
-          <div class="col-12">
+          <div class="col-12 task-file-item" data-uploader-role="{% if item.uploaded_by.is_superuser %}admin{% elif item.uploaded_by.work_profile.role == 'technician' %}technician{% else %}admin{% endif %}">
             <div class="border rounded p-2 h-100 bg-white">
               {% if item.is_image %}
               <a href="{{ item.file.url }}" target="_blank" rel="noopener"><img class="task-thumb" src="{{ item.file.url }}" alt="{{ item.original_name }}"></a>
@@ -161,35 +245,6 @@
           {% endfor %}
         </div>
       </div>
-    </div>
-
-    <div class="card border-0 shadow-sm mb-3" id="task-comments">
-      <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
-        <span>Comentarios</span>
-        {% if comments %}<span class="badge text-bg-secondary">{{ comments|length }}</span>{% endif %}
-      </div>
-      <div class="card-body task-comments">
-        {% for comment in comments %}
-        <div class="task-comment">
-          <div class="d-flex justify-content-between gap-2">
-            <div class="fw-semibold">{{ comment.user.get_full_name|default:comment.user.username }}</div>
-            <div class="compact-meta">{{ comment.created_at|date:'d/m/Y H:i' }}</div>
-          </div>
-          <div class="compact-meta">
-            {% if comment.user.is_superuser %}Admin{% else %}{{ comment.user.work_profile.get_role_display|default:'Usuario' }}{% endif %}
-          </div>
-          <div class="mt-2">{{ comment.comment|linebreaksbr }}</div>
-        </div>
-        {% empty %}
-        <div class="compact-meta">No hay comentarios todavía.</div>
-        {% endfor %}
-      </div>
-      <form method="post">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="comment">
-        <div class="card-body border-top">{{ comment_form.comment }}</div>
-        <div class="card-footer bg-white"><button class="btn btn-outline-primary w-100">Añadir comentario</button></div>
-      </form>
     </div>
 
     <div class="card border-0 shadow-sm mb-3" id="task-voice">
@@ -365,12 +420,49 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const fileForm = document.getElementById('file-upload-form');
-  const fileInput = fileForm?.querySelector('input[type=file][name=files]');
+  const fileInputs = fileForm?.querySelectorAll('input[type=file][name=files]');
   const fileStatus = document.getElementById('file-upload-status');
-  fileInput?.addEventListener('change', async () => {
-    if (!fileInput.files.length) return;
-    const ok = await submitForm(fileForm, fileStatus, 'Archivo subido. Actualizando lista...', 'No se pudo subir el archivo', 'Subiendo archivo...');
-    if (ok) window.location.reload();
+  const fileCommentToggle = document.getElementById('with-file-comment');
+  const fileCommentField = document.getElementById('file-comment-field');
+  fileCommentToggle?.addEventListener('change', () => {
+    fileCommentField?.classList.toggle('d-none', !fileCommentToggle.checked);
+  });
+  fileInputs?.forEach(fileInput => {
+    fileInput.addEventListener('change', async () => {
+      if (!fileInput.files.length) return;
+      const ok = await submitForm(fileForm, fileStatus, 'Archivo subido. Actualizando lista...', 'No se pudo subir el archivo', 'Subiendo archivo...');
+      if (ok) window.location.reload();
+    });
+  });
+
+  document.querySelectorAll('[data-file-filter]').forEach(button => {
+    button.addEventListener('click', () => {
+      const filter = button.dataset.fileFilter;
+      document.querySelectorAll('[data-file-filter]').forEach(item => item.classList.toggle('active', item === button));
+      document.querySelectorAll('.task-file-item').forEach(item => {
+        item.classList.toggle('d-none', filter !== 'all' && item.dataset.uploaderRole !== filter);
+      });
+    });
+  });
+
+  const replyTo = document.getElementById('comment-reply-to');
+  const replyPreview = document.getElementById('comment-reply-preview');
+  const replyAuthor = document.getElementById('comment-reply-author');
+  const replyText = document.getElementById('comment-reply-text');
+  const commentTextarea = document.querySelector('#comment-form textarea');
+  document.querySelectorAll('.comment-reply-button').forEach(button => {
+    button.addEventListener('click', () => {
+      if (!replyTo || !replyPreview || !replyAuthor || !replyText) return;
+      replyTo.value = button.dataset.commentId;
+      replyAuthor.textContent = button.dataset.commentAuthor || '';
+      replyText.textContent = button.dataset.commentText || '';
+      replyPreview.classList.remove('d-none');
+      commentTextarea?.focus();
+    });
+  });
+  document.getElementById('comment-reply-clear')?.addEventListener('click', () => {
+    if (replyTo) replyTo.value = '';
+    replyPreview?.classList.add('d-none');
   });
 
   const voiceForm = document.getElementById('voice-upload-form');
