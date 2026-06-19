@@ -50,7 +50,6 @@
     <div class="collapse navbar-collapse" id="workNav">
       <div class="navbar-nav me-auto">
         <a class="nav-link" href="{% url 'workdocs_dashboard' %}">Trabajo</a>
-        <a class="nav-link" href="{% url 'workdocs_task_list' %}">{% if role == 'admin' or role == 'manager' %}Tareas de técnicos{% else %}Mis tareas{% endif %}</a>
         {% if role == 'admin' or request.user.is_superuser %}
         <a class="nav-link" href="{% url 'workdocs_users' %}">Usuarios</a>
         {% endif %}

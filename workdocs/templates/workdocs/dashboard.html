@@ -11,16 +11,50 @@
 </div>
 
 <div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_task_list' %}?status=pending"><div class="card-body"><div class="compact-meta">Tareas pendientes</div><div class="fs-3 fw-semibold">{{ pending_count }}</div></div></a></div>
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_task_list' %}?status=finished"><div class="card-body"><div class="compact-meta">Finalizadas</div><div class="fs-3 fw-semibold">{{ finished_count }}</div></div></a></div>
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_task_list' %}?documents=1"><div class="card-body"><div class="compact-meta">Documentos nuevos</div><div class="fs-3 fw-semibold">{{ new_documents_count }}</div></div></a></div>
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_task_list' %}?status=active"><div class="card-body"><div class="compact-meta">Activas</div><div class="fs-3 fw-semibold">{{ active_count }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=pending"><div class="card-body"><div class="compact-meta">Tareas pendientes</div><div class="fs-3 fw-semibold">{{ pending_count }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=finished"><div class="card-body"><div class="compact-meta">Finalizadas</div><div class="fs-3 fw-semibold">{{ finished_count }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?documents=1"><div class="card-body"><div class="compact-meta">Documentos nuevos</div><div class="fs-3 fw-semibold">{{ new_documents_count }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=active"><div class="card-body"><div class="compact-meta">Activas</div><div class="fs-3 fw-semibold">{{ active_count }}</div></div></a></div>
 </div>
+
+<form class="card border-0 shadow-sm mb-3" method="get">
+  <div class="card-body">
+    <div class="row g-2">
+      <div class="col-md-4"><input class="form-control" name="q" placeholder="Buscar por dirección, título o descripción" value="{{ filters.q }}"></div>
+      <div class="col-md-3">
+        <select class="form-select" name="status">
+          <option value="">Todos los estados</option>
+          <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pendientes</option>
+          <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Activas</option>
+          <option value="finished" {% if filters.status == 'finished' %}selected{% endif %}>Finalizadas</option>
+          {% for value,label in statuses %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      {% if role == 'admin' or role == 'manager' %}
+      <div class="col-md-3">
+        <select class="form-select" name="technician">
+          <option value="">Todos los técnicos</option>
+          {% for technician in filter_technicians %}<option value="{{ technician.id }}" {% if filters.technician == technician.id|stringformat:'s' %}selected{% endif %}>{{ technician.get_full_name|default:technician.username }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="col-md-2"><button class="btn btn-outline-primary w-100">Filtrar</button></div>
+      <div class="col-md-2 d-flex align-items-center">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="documents" value="1" id="dashboard-documents-filter" {% if filters.documents %}checked{% endif %}>
+          <label class="form-check-label" for="dashboard-documents-filter">Con documentos</label>
+        </div>
+      </div>
+      {% if filters.q or filters.status or filters.technician or filters.documents %}
+      <div class="col-md-2"><a class="btn btn-outline-secondary w-100" href="{% url 'workdocs_dashboard' %}">Limpiar</a></div>
+      {% endif %}
+    </div>
+  </div>
+</form>
 
 <div class="card mb-4">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <span class="fw-semibold">Tareas activas</span>
-    <a class="btn btn-sm btn-outline-primary" href="{% url 'workdocs_task_list' %}">Ver todas</a>
+    <span class="fw-semibold">Tareas</span>
   </div>
   <div class="card-body">
   <div class="row g-3 task-grid">
@@ -59,7 +93,7 @@
     </div>
     </div>
     {% empty %}
-    <div class="col-12 compact-meta">No hay tareas activas.</div>
+    <div class="col-12 compact-meta">No hay tareas con estos filtros.</div>
     {% endfor %}
   </div>
   </div>

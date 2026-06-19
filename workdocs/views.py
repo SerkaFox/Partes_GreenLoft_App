@@ -117,6 +117,28 @@ def _active_statuses():
     ]
 
 
+def _filtered_tasks_for_request(request, qs):
+    status = request.GET.get('status') or ''
+    documents = request.GET.get('documents') or ''
+    technician = request.GET.get('technician') or ''
+    q = request.GET.get('q') or ''
+    if status == 'pending':
+        qs = qs.exclude(status__in=[Task.STATUS_FINALIZADA, Task.STATUS_CANCELADA])
+    elif status == 'finished':
+        qs = qs.filter(status=Task.STATUS_FINALIZADA)
+    elif status == 'active':
+        qs = qs.filter(status__in=_active_statuses())
+    elif status:
+        qs = qs.filter(status=status)
+    if documents:
+        qs = qs.filter(files__isnull=False).distinct()
+    if technician and (is_admin(request.user) or is_manager(request.user)):
+        qs = qs.filter(Q(assigned_to_id=technician) | Q(technicians__id=technician)).distinct()
+    if q:
+        qs = qs.filter(Q(title__icontains=q) | Q(address__icontains=q) | Q(description__icontains=q))
+    return qs, {'status': status, 'documents': documents, 'technician': technician, 'q': q}
+
+
 def _with_comment_count(qs):
     return qs.annotate(
         comment_count=Count('events', filter=Q(events__event_type=TaskEvent.EVENT_COMMENT), distinct=True),
@@ -342,15 +364,20 @@ def dashboard(request):
     role = get_user_role(request.user)
     qs = _visible_tasks(request.user)
     active_statuses = _active_statuses()
+    filtered_qs, filters = _filtered_tasks_for_request(request, qs)
+    tasks = _with_comment_count(filtered_qs)
     active_tasks = _with_comment_count(qs.filter(status__in=active_statuses))
     context = {
         'role': role,
-        'tasks': _attach_unread_counts(active_tasks[:40], request.user),
+        'tasks': _attach_unread_counts(tasks[:80], request.user),
         'active_count': qs.filter(status__in=active_statuses).count(),
         'finished_count': qs.filter(status=Task.STATUS_FINALIZADA).count(),
         'pending_count': qs.exclude(status__in=[Task.STATUS_FINALIZADA, Task.STATUS_CANCELADA]).count(),
         'new_documents_count': TaskFile.objects.filter(task__in=qs).count(),
         'technicians': [],
+        'filter_technicians': _technicians(),
+        'statuses': Task.STATUS_CHOICES,
+        'filters': filters,
     }
     if role in {UserProfile.ROLE_ADMIN, UserProfile.ROLE_MANAGER}:
         today = timezone.localdate()
@@ -388,30 +415,13 @@ def technician_detail(request, pk):
 @login_required(login_url='/panel/login/')
 def task_list(request):
     qs = _visible_tasks(request.user)
-    status = request.GET.get('status') or ''
-    documents = request.GET.get('documents') or ''
-    technician = request.GET.get('technician') or ''
-    q = request.GET.get('q') or ''
-    if status == 'pending':
-        qs = qs.exclude(status__in=[Task.STATUS_FINALIZADA, Task.STATUS_CANCELADA])
-    elif status == 'finished':
-        qs = qs.filter(status=Task.STATUS_FINALIZADA)
-    elif status == 'active':
-        qs = qs.filter(status__in=_active_statuses())
-    elif status:
-        qs = qs.filter(status=status)
-    if documents:
-        qs = qs.filter(files__isnull=False).distinct()
-    if technician and (is_admin(request.user) or is_manager(request.user)):
-        qs = qs.filter(Q(assigned_to_id=technician) | Q(technicians__id=technician)).distinct()
-    if q:
-        qs = qs.filter(Q(title__icontains=q) | Q(address__icontains=q) | Q(description__icontains=q))
+    qs, filters = _filtered_tasks_for_request(request, qs)
     qs = _with_comment_count(qs)
     return render(request, 'workdocs/task_list.html', {
         'tasks': _attach_unread_counts(qs[:300], request.user),
         'statuses': Task.STATUS_CHOICES,
         'technicians': _technicians(),
-        'filters': {'status': status, 'documents': documents, 'technician': technician, 'q': q},
+        'filters': filters,
         'role': get_user_role(request.user),
     })
 
