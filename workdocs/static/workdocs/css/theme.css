@@ -259,6 +259,20 @@ body.workdocs-theme .task-card:focus {
   color: var(--wl-text);
   transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease, transform .16s ease;
 }
+.dashboard-stat-card .card-body {
+  padding: 10px 12px;
+}
+.dashboard-stat-number {
+  color: #fff;
+  font-size: 1.45rem;
+  font-weight: 750;
+  line-height: 1.1;
+}
+.dashboard-stat-period {
+  color: var(--wl-muted);
+  font-size: .76rem;
+  margin-top: 2px;
+}
 .dashboard-stat-card:hover,
 .dashboard-stat-card:focus {
   color: var(--wl-text);

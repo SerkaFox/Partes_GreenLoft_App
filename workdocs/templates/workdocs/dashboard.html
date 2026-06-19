@@ -10,11 +10,11 @@
   {% endif %}
 </div>
 
-<div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=pending" data-dashboard-status="pending"><div class="card-body"><div class="compact-meta">Tareas pendientes</div><div class="fs-3 fw-semibold">{{ pending_count }}</div></div></a></div>
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=finished" data-dashboard-status="finished"><div class="card-body"><div class="compact-meta">Finalizadas</div><div class="fs-3 fw-semibold">{{ finished_count }}</div></div></a></div>
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?documents=1" data-dashboard-documents="1"><div class="card-body"><div class="compact-meta">Documentos nuevos</div><div class="fs-3 fw-semibold">{{ new_documents_count }}</div></div></a></div>
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=active" data-dashboard-status="active"><div class="card-body"><div class="compact-meta">Activas</div><div class="fs-3 fw-semibold">{{ active_count }}</div></div></a></div>
+<div class="row g-2 mb-3">
+  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=pending" data-dashboard-status="pending"><div class="card-body"><div class="compact-meta">Tareas pendientes</div><div class="dashboard-stat-number">{{ pending_count }}</div><div class="dashboard-stat-period">Todo el periodo</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=finished" data-dashboard-status="finished"><div class="card-body"><div class="compact-meta">Finalizadas</div><div class="dashboard-stat-number">{{ finished_count }}</div><div class="dashboard-stat-period">Todo el periodo</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?documents=1" data-dashboard-documents="1"><div class="card-body"><div class="compact-meta">Documentos nuevos</div><div class="dashboard-stat-number">{{ new_documents_count }}</div><div class="dashboard-stat-period">Todo el periodo</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=active" data-dashboard-status="active"><div class="card-body"><div class="compact-meta">Activas</div><div class="dashboard-stat-number">{{ active_count }}</div><div class="dashboard-stat-period">Todo el periodo</div></div></a></div>
 </div>
 
 <div class="card border-0 shadow-sm mb-3 dashboard-filter-panel">
@@ -47,6 +47,7 @@
       <div class="col-sm-6 col-lg-2"><input class="form-control form-control-sm" id="dashboard-date-to" type="date" value="{{ filters.date_to }}" aria-label="Hasta"></div>
       <div class="col-sm-6 col-lg-2"><button class="btn btn-sm btn-outline-secondary w-100" type="button" id="dashboard-clear-filters">Limpiar</button></div>
       <div class="col-sm-6 col-lg-2 compact-meta d-flex align-items-center"><span id="dashboard-filter-count"></span></div>
+      <div class="col-12 compact-meta"><span id="dashboard-period-label"></span></div>
     </div>
   </div>
 </div>
@@ -145,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const dateFromInput = document.getElementById('dashboard-date-from');
   const dateToInput = document.getElementById('dashboard-date-to');
   const countLabel = document.getElementById('dashboard-filter-count');
+  const periodLabel = document.getElementById('dashboard-period-label');
   const emptyState = document.getElementById('dashboard-live-empty');
   const taskItems = [...document.querySelectorAll('.dashboard-task-item')];
   const statusButtons = [...document.querySelectorAll('[data-status-filter]')];
@@ -194,6 +196,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (countLabel) countLabel.textContent = `${visible} tarea${visible === 1 ? '' : 's'}`;
+    if (periodLabel) {
+      if (dateFrom && dateTo) periodLabel.textContent = `Periodo de la lista: ${dateFrom} - ${dateTo}`;
+      else if (dateFrom) periodLabel.textContent = `Periodo de la lista: desde ${dateFrom}`;
+      else if (dateTo) periodLabel.textContent = `Periodo de la lista: hasta ${dateTo}`;
+      else periodLabel.textContent = 'Periodo de la lista: todo el periodo';
+    }
     emptyState?.classList.toggle('d-none', visible !== 0 || taskItems.length === 0);
     updateUrl();
   };

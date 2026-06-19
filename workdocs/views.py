@@ -370,8 +370,8 @@ def dashboard(request):
     role = get_user_role(request.user)
     qs = _visible_tasks(request.user)
     active_statuses = _active_statuses()
-    filtered_qs, filters = _filtered_tasks_for_request(request, qs)
-    tasks = _with_comment_count(filtered_qs)
+    _filtered_qs, filters = _filtered_tasks_for_request(request, qs)
+    tasks = _with_comment_count(qs)
     active_tasks = _with_comment_count(qs.filter(status__in=active_statuses))
     context = {
         'role': role,
