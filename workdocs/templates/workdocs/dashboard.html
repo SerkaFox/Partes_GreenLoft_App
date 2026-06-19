@@ -11,55 +11,61 @@
 </div>
 
 <div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=pending"><div class="card-body"><div class="compact-meta">Tareas pendientes</div><div class="fs-3 fw-semibold">{{ pending_count }}</div></div></a></div>
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=finished"><div class="card-body"><div class="compact-meta">Finalizadas</div><div class="fs-3 fw-semibold">{{ finished_count }}</div></div></a></div>
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?documents=1"><div class="card-body"><div class="compact-meta">Documentos nuevos</div><div class="fs-3 fw-semibold">{{ new_documents_count }}</div></div></a></div>
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=active"><div class="card-body"><div class="compact-meta">Activas</div><div class="fs-3 fw-semibold">{{ active_count }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=pending" data-dashboard-status="pending"><div class="card-body"><div class="compact-meta">Tareas pendientes</div><div class="fs-3 fw-semibold">{{ pending_count }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=finished" data-dashboard-status="finished"><div class="card-body"><div class="compact-meta">Finalizadas</div><div class="fs-3 fw-semibold">{{ finished_count }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?documents=1" data-dashboard-documents="1"><div class="card-body"><div class="compact-meta">Documentos nuevos</div><div class="fs-3 fw-semibold">{{ new_documents_count }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=active" data-dashboard-status="active"><div class="card-body"><div class="compact-meta">Activas</div><div class="fs-3 fw-semibold">{{ active_count }}</div></div></a></div>
 </div>
 
-<form class="card border-0 shadow-sm mb-3" method="get">
+<div class="card border-0 shadow-sm mb-3 dashboard-filter-panel">
   <div class="card-body">
-    <div class="row g-2">
-      <div class="col-md-4"><input class="form-control" name="q" placeholder="Buscar por dirección, título o descripción" value="{{ filters.q }}"></div>
-      <div class="col-md-3">
-        <select class="form-select" name="status">
-          <option value="">Todos los estados</option>
-          <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pendientes</option>
-          <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Activas</option>
-          <option value="finished" {% if filters.status == 'finished' %}selected{% endif %}>Finalizadas</option>
-          {% for value,label in statuses %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-        </select>
+    <div class="row g-2 align-items-end">
+      <div class="col-lg-3"><input class="form-control form-control-sm" id="dashboard-search" placeholder="Buscar pedido..." value="{{ filters.q }}" autocomplete="off"></div>
+      <div class="col-lg-5">
+        <div class="work-filter-tabs d-flex flex-wrap gap-1" aria-label="Estados">
+          <button class="btn btn-sm btn-outline-primary {% if not filters.status %}active{% endif %}" type="button" data-status-filter="">Todos</button>
+          <button class="btn btn-sm btn-outline-primary {% if filters.status == 'pending' %}active{% endif %}" type="button" data-status-filter="pending">Pendientes</button>
+          <button class="btn btn-sm btn-outline-primary {% if filters.status == 'active' %}active{% endif %}" type="button" data-status-filter="active">Activas</button>
+          <button class="btn btn-sm btn-outline-primary {% if filters.status == 'finished' %}active{% endif %}" type="button" data-status-filter="finished">Finalizadas</button>
+        </div>
       </div>
       {% if role == 'admin' or role == 'manager' %}
-      <div class="col-md-3">
-        <select class="form-select" name="technician">
+      <div class="col-lg-2">
+        <select class="form-select form-select-sm" id="dashboard-technician">
           <option value="">Todos los técnicos</option>
           {% for technician in filter_technicians %}<option value="{{ technician.id }}" {% if filters.technician == technician.id|stringformat:'s' %}selected{% endif %}>{{ technician.get_full_name|default:technician.username }}</option>{% endfor %}
         </select>
       </div>
       {% endif %}
-      <div class="col-md-2"><button class="btn btn-outline-primary w-100">Filtrar</button></div>
-      <div class="col-md-2 d-flex align-items-center">
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="documents" value="1" id="dashboard-documents-filter" {% if filters.documents %}checked{% endif %}>
+      <div class="col-lg-2 d-flex align-items-center">
+        <div class="form-check form-check-sm">
+          <input class="form-check-input" type="checkbox" value="1" id="dashboard-documents-filter" {% if filters.documents %}checked{% endif %}>
           <label class="form-check-label" for="dashboard-documents-filter">Con documentos</label>
         </div>
       </div>
-      {% if filters.q or filters.status or filters.technician or filters.documents %}
-      <div class="col-md-2"><a class="btn btn-outline-secondary w-100" href="{% url 'workdocs_dashboard' %}">Limpiar</a></div>
-      {% endif %}
+      <div class="col-sm-6 col-lg-2"><input class="form-control form-control-sm" id="dashboard-date-from" type="date" value="{{ filters.date_from }}" aria-label="Desde"></div>
+      <div class="col-sm-6 col-lg-2"><input class="form-control form-control-sm" id="dashboard-date-to" type="date" value="{{ filters.date_to }}" aria-label="Hasta"></div>
+      <div class="col-sm-6 col-lg-2"><button class="btn btn-sm btn-outline-secondary w-100" type="button" id="dashboard-clear-filters">Limpiar</button></div>
+      <div class="col-sm-6 col-lg-2 compact-meta d-flex align-items-center"><span id="dashboard-filter-count"></span></div>
     </div>
   </div>
-</form>
+</div>
 
 <div class="card mb-4">
   <div class="card-header d-flex justify-content-between align-items-center">
     <span class="fw-semibold">Tareas</span>
   </div>
   <div class="card-body">
-  <div class="row g-3 task-grid">
+  <div class="row g-3 task-grid" id="dashboard-task-grid">
     {% for task in tasks %}
-    <div class="col-xl-6">
+    <div class="col-xl-6 dashboard-task-item"
+      data-search="{{ task.title|default:''|lower }} {{ task.address|default:''|lower }} {{ task.description|default:''|striptags|lower }}"
+      data-status="{{ task.status }}"
+      data-is-active="{% if task.status != 'FINALIZADA' and task.status != 'CANCELADA' %}1{% else %}0{% endif %}"
+      data-is-finished="{% if task.status == 'FINALIZADA' %}1{% else %}0{% endif %}"
+      data-has-documents="{% if task.file_count %}1{% else %}0{% endif %}"
+      data-created-date="{{ task.created_at|date:'Y-m-d' }}"
+      data-technicians="{% for technician in task.assigned_technicians %}{{ technician.id }}{% if not forloop.last %},{% endif %}{% endfor %}">
     <div class="task-card task-active clickable-task-card h-100 {% if task.status == 'NUEVA' %}task-new-pulse{% endif %}" data-href="{% url 'workdocs_task_detail' task.pk %}" role="link" tabindex="0">
       <div class="d-flex justify-content-between gap-2">
         <div>
@@ -93,8 +99,9 @@
     </div>
     </div>
     {% empty %}
-    <div class="col-12 compact-meta">No hay tareas con estos filtros.</div>
+    <div class="col-12 compact-meta dashboard-empty-state">No hay tareas con estos filtros.</div>
     {% endfor %}
+    <div class="col-12 compact-meta dashboard-empty-state d-none" id="dashboard-live-empty">No hay tareas con estos filtros.</div>
   </div>
   </div>
 </div>
@@ -132,6 +139,100 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  const searchInput = document.getElementById('dashboard-search');
+  const technicianSelect = document.getElementById('dashboard-technician');
+  const documentsInput = document.getElementById('dashboard-documents-filter');
+  const dateFromInput = document.getElementById('dashboard-date-from');
+  const dateToInput = document.getElementById('dashboard-date-to');
+  const countLabel = document.getElementById('dashboard-filter-count');
+  const emptyState = document.getElementById('dashboard-live-empty');
+  const taskItems = [...document.querySelectorAll('.dashboard-task-item')];
+  const statusButtons = [...document.querySelectorAll('[data-status-filter]')];
+
+  const currentStatus = () => document.querySelector('[data-status-filter].active')?.dataset.statusFilter || '';
+  const setStatus = status => {
+    statusButtons.forEach(button => button.classList.toggle('active', button.dataset.statusFilter === status));
+  };
+  const normalize = value => (value || '').trim().toLowerCase();
+  const updateUrl = () => {
+    const params = new URLSearchParams();
+    if (searchInput?.value.trim()) params.set('q', searchInput.value.trim());
+    if (currentStatus()) params.set('status', currentStatus());
+    if (technicianSelect?.value) params.set('technician', technicianSelect.value);
+    if (documentsInput?.checked) params.set('documents', '1');
+    if (dateFromInput?.value) params.set('date_from', dateFromInput.value);
+    if (dateToInput?.value) params.set('date_to', dateToInput.value);
+    const query = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+  };
+  const applyFilters = () => {
+    const q = normalize(searchInput?.value);
+    const status = currentStatus();
+    const technician = technicianSelect?.value || '';
+    const onlyDocuments = Boolean(documentsInput?.checked);
+    const dateFrom = dateFromInput?.value || '';
+    const dateTo = dateToInput?.value || '';
+    let visible = 0;
+
+    taskItems.forEach(item => {
+      const itemStatus = item.dataset.status || '';
+      const createdDate = item.dataset.createdDate || '';
+      const techIds = (item.dataset.technicians || '').split(',').filter(Boolean);
+      const matchesStatus = !status
+        || (status === 'pending' && item.dataset.isFinished !== '1' && itemStatus !== 'CANCELADA')
+        || (status === 'active' && item.dataset.isActive === '1')
+        || (status === 'finished' && item.dataset.isFinished === '1')
+        || itemStatus === status;
+      const matches = (!q || normalize(item.dataset.search).includes(q))
+        && matchesStatus
+        && (!technician || techIds.includes(technician))
+        && (!onlyDocuments || item.dataset.hasDocuments === '1')
+        && (!dateFrom || createdDate >= dateFrom)
+        && (!dateTo || createdDate <= dateTo);
+      item.classList.toggle('d-none', !matches);
+      if (matches) visible += 1;
+    });
+
+    if (countLabel) countLabel.textContent = `${visible} tarea${visible === 1 ? '' : 's'}`;
+    emptyState?.classList.toggle('d-none', visible !== 0 || taskItems.length === 0);
+    updateUrl();
+  };
+
+  statusButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      setStatus(button.dataset.statusFilter || '');
+      applyFilters();
+    });
+  });
+  [searchInput, technicianSelect, documentsInput, dateFromInput, dateToInput].forEach(control => {
+    control?.addEventListener('input', applyFilters);
+    control?.addEventListener('change', applyFilters);
+  });
+  document.querySelectorAll('[data-dashboard-status], [data-dashboard-documents]').forEach(card => {
+    card.addEventListener('click', event => {
+      event.preventDefault();
+      if (card.dataset.dashboardStatus !== undefined) {
+        setStatus(card.dataset.dashboardStatus || '');
+        if (documentsInput) documentsInput.checked = false;
+      }
+      if (card.dataset.dashboardDocuments !== undefined) {
+        setStatus('');
+        if (documentsInput) documentsInput.checked = card.dataset.dashboardDocuments === '1';
+      }
+      applyFilters();
+    });
+  });
+  document.getElementById('dashboard-clear-filters')?.addEventListener('click', () => {
+    if (searchInput) searchInput.value = '';
+    if (technicianSelect) technicianSelect.value = '';
+    if (documentsInput) documentsInput.checked = false;
+    if (dateFromInput) dateFromInput.value = '';
+    if (dateToInput) dateToInput.value = '';
+    setStatus('');
+    applyFilters();
+  });
+  applyFilters();
+
   document.querySelectorAll('.clickable-task-card[data-href]').forEach(card => {
     const openCard = () => { window.location.href = card.dataset.href; };
     card.addEventListener('click', event => {

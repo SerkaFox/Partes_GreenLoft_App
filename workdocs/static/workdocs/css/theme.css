@@ -503,6 +503,25 @@ body.pdf-preview-open {
   border-color: rgba(138, 255, 190, .62);
   color: #fff;
 }
+.dashboard-filter-panel .card-body {
+  padding: 12px;
+}
+.dashboard-filter-panel .form-control,
+.dashboard-filter-panel .form-select,
+.dashboard-filter-panel .btn {
+  min-height: 34px;
+}
+.dashboard-filter-panel .form-check {
+  margin-bottom: 0;
+}
+.dashboard-filter-panel .form-check-label {
+  color: var(--wl-text);
+  font-size: .88rem;
+}
+.dashboard-filter-panel .work-filter-tabs .btn {
+  padding: 5px 10px;
+  font-size: .82rem;
+}
 .vehicle-thumb-initial {
   font-size: 2rem;
   font-weight: 800;

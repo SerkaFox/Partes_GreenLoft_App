@@ -122,6 +122,8 @@ def _filtered_tasks_for_request(request, qs):
     documents = request.GET.get('documents') or ''
     technician = request.GET.get('technician') or ''
     q = request.GET.get('q') or ''
+    date_from = request.GET.get('date_from') or ''
+    date_to = request.GET.get('date_to') or ''
     if status == 'pending':
         qs = qs.exclude(status__in=[Task.STATUS_FINALIZADA, Task.STATUS_CANCELADA])
     elif status == 'finished':
@@ -136,7 +138,11 @@ def _filtered_tasks_for_request(request, qs):
         qs = qs.filter(Q(assigned_to_id=technician) | Q(technicians__id=technician)).distinct()
     if q:
         qs = qs.filter(Q(title__icontains=q) | Q(address__icontains=q) | Q(description__icontains=q))
-    return qs, {'status': status, 'documents': documents, 'technician': technician, 'q': q}
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+    return qs, {'status': status, 'documents': documents, 'technician': technician, 'q': q, 'date_from': date_from, 'date_to': date_to}
 
 
 def _with_comment_count(qs):
@@ -369,7 +375,7 @@ def dashboard(request):
     active_tasks = _with_comment_count(qs.filter(status__in=active_statuses))
     context = {
         'role': role,
-        'tasks': _attach_unread_counts(tasks[:80], request.user),
+        'tasks': _attach_unread_counts(tasks[:300], request.user),
         'active_count': qs.filter(status__in=active_statuses).count(),
         'finished_count': qs.filter(status=Task.STATUS_FINALIZADA).count(),
         'pending_count': qs.exclude(status__in=[Task.STATUS_FINALIZADA, Task.STATUS_CANCELADA]).count(),
