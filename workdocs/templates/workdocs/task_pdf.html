@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tarea #{{ task.pk }} — {{ task.title }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      font-size: 13px;
+      color: #111;
+      background: #fff;
+      padding: 32px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    h2 { font-size: 15px; font-weight: 700; margin: 20px 0 8px; border-bottom: 2px solid #198754; padding-bottom: 4px; color: #198754; }
+    .meta { color: #555; font-size: 12px; margin-bottom: 2px; }
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-active { background: #d1fae5; color: #065f46; }
+    .badge-finalizada { background: #198754; color: #fff; }
+    .badge-cancelada { background: #dc3545; color: #fff; }
+    .badge-revision { background: #f59e0b; color: #fff; }
+    .badge-nueva { background: #6ea8fe; color: #fff; }
+    .section { margin-bottom: 20px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+    .field-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+    .field-value { margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { background: #f4f4f4; padding: 6px 8px; text-align: left; font-weight: 600; border-bottom: 2px solid #ddd; }
+    td { padding: 6px 8px; border-bottom: 1px solid #eee; }
+    tr:last-child td { border-bottom: 0; }
+    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+    .dot-falta { background: #dc3545; }
+    .dot-pedido { background: #ffc107; }
+    .dot-almacen { background: #0dcaf0; }
+    .dot-objeto { background: #198754; }
+    .print-btn {
+      position: fixed; top: 20px; right: 20px;
+      padding: 8px 20px; background: #198754; color: #fff; border: 0;
+      border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .report-block { padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; }
+    .report-title { font-weight: 600; margin-bottom: 6px; }
+    @media print {
+      body { padding: 20px; }
+      .print-btn { display: none; }
+    }
+  </style>
+</head>
+<body>
+<button class="print-btn" onclick="window.print()">Imprimir / Guardar PDF</button>
+
+<div class="section">
+  <h1>{{ task.title }}</h1>
+  <div class="meta">Tarea #{{ task.pk }} &nbsp;·&nbsp; Creada el {{ task.created_at|date:'d/m/Y H:i' }}</div>
+  {% if task.status == 'FINALIZADA' %}
+  <span class="badge badge-finalizada" style="margin-top:6px;">Finalizada</span>
+  {% elif task.status == 'CANCELADA' %}
+  <span class="badge badge-cancelada" style="margin-top:6px;">Cancelada</span>
+  {% elif task.status == 'PENDIENTE_REVISION' %}
+  <span class="badge badge-revision" style="margin-top:6px;">Pendiente revisión</span>
+  {% elif task.status == 'NUEVA' %}
+  <span class="badge badge-nueva" style="margin-top:6px;">Nueva</span>
+  {% else %}
+  <span class="badge badge-active" style="margin-top:6px;">{{ task.get_status_display }}</span>
+  {% endif %}
+</div>
+
+<div class="grid2">
+  <div class="section">
+    <div class="field">
+      <div class="field-label">Dirección</div>
+      <div class="field-value">{{ task.address|default:'—' }}</div>
+    </div>
+    <div class="field">
+      <div class="field-label">Técnicos</div>
+      <div class="field-value">{% for t in technicians %}{{ t.get_full_name|default:t.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</div>
+    </div>
+    <div class="field">
+      <div class="field-label">Creada por</div>
+      <div class="field-value">{{ task.created_by.get_full_name|default:task.created_by.username }}</div>
+    </div>
+    {% if task.vehicle %}
+    <div class="field">
+      <div class="field-label">Vehículo</div>
+      <div class="field-value">{{ task.vehicle }}</div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="section">
+    <div class="field">
+      <div class="field-label">Salida al trabajo</div>
+      <div class="field-value">{% if task.started_at %}{{ task.started_at|date:'d/m/Y H:i' }}{% else %}—{% endif %}</div>
+    </div>
+    <div class="field">
+      <div class="field-label">Llegada al objeto</div>
+      <div class="field-value">{% if task.arrived_at %}{{ task.arrived_at|date:'d/m/Y H:i' }}{% else %}—{% endif %}</div>
+    </div>
+    <div class="field">
+      <div class="field-label">Finalización</div>
+      <div class="field-value">{% if task.finished_at %}{{ task.finished_at|date:'d/m/Y H:i' }}{% else %}—{% endif %}</div>
+    </div>
+  </div>
+</div>
+
+{% if task.description %}
+<h2>Descripción</h2>
+<div class="section">{{ task.description|linebreaksbr }}</div>
+{% endif %}
+
+{% if materials %}
+<h2>Materiales ({{ materials|length }})</h2>
+<table>
+  <thead><tr><th>Material</th><th>Cantidad</th><th>Unidad</th><th>Estado</th></tr></thead>
+  <tbody>
+  {% for tm in materials %}
+  <tr>
+    <td>{{ tm.material.name }}</td>
+    <td>{{ tm.quantity }}</td>
+    <td>{{ tm.material.unit }}</td>
+    <td>
+      {% if tm.status == 'falta' %}<span class="status-dot dot-falta"></span>Falta
+      {% elif tm.status == 'pedido' %}<span class="status-dot dot-pedido"></span>Pedido
+      {% elif tm.status == 'almacen' %}<span class="status-dot dot-almacen"></span>En almacén
+      {% elif tm.status == 'objeto' %}<span class="status-dot dot-objeto"></span>En obra
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if worker_reports %}
+<h2>Informes de jornada</h2>
+{% for report in worker_reports %}
+<div class="report-block">
+  <div class="report-title">{{ report.worker.get_full_name|default:report.worker.username }} — {{ report.date|date:'d/m/Y' }}</div>
+  <div class="grid2">
+    <div>
+      <div class="field">
+        <div class="field-label">Jornada</div>
+        <div class="field-value">{% if report.jornada == 'intensiva' %}Intensiva (sin pausa){% else %}Normal (1h comida){% endif %}</div>
+      </div>
+      {% if report.jornada == 'normal' %}
+      <div class="field">
+        <div class="field-label">Hora comida</div>
+        <div class="field-value">{{ report.hora_comida|time:'H:i'|default:'—' }}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Gastos comida</div>
+        <div class="field-value">{% if report.gastos_comida %}{{ report.gastos_comida }} €{% else %}—{% endif %}</div>
+      </div>
+      {% endif %}
+    </div>
+    <div>
+      <div class="field">
+        <div class="field-label">Llegada al objeto</div>
+        <div class="field-value">{{ report.entrada_obra|time:'H:i'|default:'—' }}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Salida del objeto</div>
+        <div class="field-value">{{ report.salida_obra|time:'H:i'|default:'—' }}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Estado</div>
+        <div class="field-value">{% if report.is_finished %}✓ Finalizado{% else %}En curso{% endif %}</div>
+      </div>
+    </div>
+  </div>
+  {% if report.trabajos_realizados %}
+  <div class="field">
+    <div class="field-label">Trabajos realizados</div>
+    <div class="field-value" style="margin-top:4px">{{ report.trabajos_realizados|linebreaksbr }}</div>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+<div style="margin-top:32px; border-top:1px solid #eee; padding-top:10px; color:#aaa; font-size:11px;">
+  Exportado el {% now "d/m/Y H:i" %} — Sistema de gestión Jelec
+</div>
+</body>
+</html>

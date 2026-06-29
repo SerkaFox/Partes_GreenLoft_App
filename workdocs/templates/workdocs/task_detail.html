@@ -3,76 +3,179 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+
+{# ── Task header ── #}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
   <div>
     <h1 class="h3 mb-1">{{ task.title }}</h1>
-    <div class="compact-meta">{{ task.address|default:'Sin dirección' }}</div>
+    {% if task.address %}<div class="compact-meta">{{ task.address }}</div>{% endif %}
   </div>
-  <div class="text-end">{% include 'workdocs/partials_status.html' with task=task %}</div>
+  <div>{% include 'workdocs/partials_status.html' with task=task %}</div>
 </div>
 
+{# ── Technician quick-action buttons ── #}
 {% if role == 'technician' %}
-<div class="alert alert-info">Recuerda cerrar el trabajo y enviar el informe.</div>
 <div class="d-flex flex-wrap gap-2 mobile-actions mb-3">
-  <form method="post" action="{% url 'workdocs_technician_status' task.pk 'arrived_work' %}">{% csrf_token %}<button class="btn btn-outline-primary">He llegado al trabajo</button></form>
-  <form method="post" action="{% url 'workdocs_technician_status' task.pk 'arrived_object' %}">{% csrf_token %}<button class="btn btn-outline-primary">He llegado al objeto</button></form>
-  <form method="post" action="{% url 'workdocs_technician_status' task.pk 'left_object' %}">{% csrf_token %}<button class="btn btn-outline-primary">Salí del objeto</button></form>
-  <form method="post" action="{% url 'workdocs_technician_status' task.pk 'finished' %}">{% csrf_token %}<button class="btn btn-success">Trabajo finalizado</button></form>
+  <form method="post" action="{% url 'workdocs_technician_status' task.pk 'arrived_work' %}">{% csrf_token %}
+    <button class="btn {% if task.status == 'EN_CAMINO' %}btn-primary status-btn-active{% else %}btn-outline-primary{% endif %}">He llegado al trabajo</button>
+  </form>
+  <form method="post" action="{% url 'workdocs_technician_status' task.pk 'arrived_object' %}">{% csrf_token %}
+    <button class="btn {% if task.status == 'EN_OBJETO' %}btn-primary status-btn-active{% else %}btn-outline-primary{% endif %}">He llegado al objeto</button>
+  </form>
+  <form method="post" action="{% url 'workdocs_technician_status' task.pk 'left_object' %}">{% csrf_token %}
+    <button class="btn {% if task.status == 'PENDIENTE_REVISION' and not my_worker_report.is_finished %}btn-primary status-btn-active{% else %}btn-outline-primary{% endif %}">Salí del objeto</button>
+  </form>
+  {% if my_worker_report.is_finished %}
+  <button class="btn btn-success status-btn-active" disabled>Trabajo finalizado ✓</button>
+  {% else %}
+  <button class="btn {% if task.status == 'FINALIZADA' %}btn-success status-btn-active{% else %}btn-outline-success{% endif %}" type="button" data-bs-toggle="modal" data-bs-target="#finishConfirmModal">Trabajo finalizado</button>
+  {% endif %}
+</div>
+
+{# Confirm finish modal #}
+<div class="modal fade" id="finishConfirmModal" tabindex="-1" aria-labelledby="finishConfirmModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="finishConfirmModalLabel">Confirmar finalización</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p>¿Estás seguro de que quieres marcar el trabajo como finalizado para ti?</p>
+        <p class="compact-meta">Esto enviará un informe y cerrará tu acceso activo. Si hay un compañero en la tarea, él puede seguir trabajando.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form method="post" action="{% url 'workdocs_technician_status' task.pk 'finished' %}">{% csrf_token %}
+          <button class="btn btn-success" type="submit">Sí, finalizar</button>
+        </form>
+      </div>
+    </div>
+  </div>
 </div>
 {% endif %}
 
-<div class="row g-3">
-  <div class="col-lg-8">
-    <div class="card border-0 shadow-sm mb-3">
-      <div class="card-header bg-white fw-semibold">Información</div>
+{# ── Tab navigation ── #}
+<ul class="nav task-tab-nav flex-nowrap overflow-auto mb-3 gap-1" id="taskTabNav" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="task-tab active" data-bs-toggle="tab" data-bs-target="#tab-info" role="tab" aria-selected="true">
+      Información
+    </button>
+  </li>
+  {% if map_coords or task.address %}
+  <li class="nav-item" role="presentation">
+    <button class="task-tab" data-bs-toggle="tab" data-bs-target="#tab-map" role="tab" id="map-tab-btn" aria-selected="false">
+      Mapa
+    </button>
+  </li>
+  {% endif %}
+  <li class="nav-item" role="presentation">
+    <button class="task-tab d-flex align-items-center gap-2" data-bs-toggle="tab" data-bs-target="#tab-chat" role="tab" aria-selected="false">
+      Chat
+      <span class="badge text-bg-secondary{% if not chat_items %} d-none{% endif %}" id="chat-count-badge">{{ chat_items|length }}</span>
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="task-tab d-flex align-items-center gap-2" data-bs-toggle="tab" data-bs-target="#tab-materials" role="tab" aria-selected="false">
+      Materiales
+      <span class="badge text-bg-secondary d-none" id="materials-count-badge"></span>
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="task-tab" data-bs-toggle="tab" data-bs-target="#tab-files" role="tab" aria-selected="false">
+      Archivos
+    </button>
+  </li>
+  {% if can_edit_task %}
+  <li class="nav-item" role="presentation">
+    <button class="task-tab" data-bs-toggle="tab" data-bs-target="#tab-edit" role="tab" id="edit-tab-btn" aria-selected="false">
+      Editar
+    </button>
+  </li>
+  {% endif %}
+  {% if role == 'technician' %}
+  <li class="nav-item" role="presentation">
+    <button class="task-tab" data-bs-toggle="tab" data-bs-target="#tab-informe" role="tab" aria-selected="false">
+      Informe
+    </button>
+  </li>
+  {% endif %}
+  <li class="nav-item" role="presentation">
+    <button class="task-tab d-flex align-items-center gap-2" data-bs-toggle="tab" data-bs-target="#tab-history" role="tab" aria-selected="false">
+      Historial
+      <span class="badge text-bg-secondary">{{ events|length }}</span>
+    </button>
+  </li>
+</ul>
+
+{# ── Tab content ── #}
+<div class="tab-content" id="taskTabContent">
+
+  {# ── INFO TAB ── #}
+  <div class="tab-pane fade show active" id="tab-info" role="tabpanel">
+    <div class="card border-0 shadow-sm">
       <div class="card-body">
-        <p class="mb-3">{{ task.description|linebreaksbr|default:'Sin descripción.' }}</p>
-        <div class="row g-2 compact-meta">
+        {% if task.description %}
+        <p class="mb-3">{{ task.description|linebreaksbr }}</p>
+        {% else %}
+        <p class="compact-meta mb-3">Sin descripción.</p>
+        {% endif %}
+
+        <div class="row g-2 compact-meta mb-3">
           {% if task.parent_task %}
-          <div class="col-md-6">Continuación de: <a href="{% url 'workdocs_task_detail' task.parent_task.pk %}">#{{ task.parent_task.pk }} {{ task.parent_task.title }}</a></div>
+          <div class="col-12">Continuación de: <a href="{% url 'workdocs_task_detail' task.parent_task.pk %}">#{{ task.parent_task.pk }} {{ task.parent_task.title }}</a></div>
           {% endif %}
-          <div class="col-md-6">Creada por:
+          <div class="col-sm-6">Creada por:
             {% if created_by_url %}<a href="{{ created_by_url }}">{{ task.created_by.get_full_name|default:task.created_by.username }}</a>{% else %}{{ task.created_by.get_full_name|default:task.created_by.username }}{% endif %}
           </div>
-          <div class="col-md-6">Técnicos:
-            {% for item in technicians_info %}
-              {% if item.url %}<a href="{{ item.url }}">{{ item.user.get_full_name|default:item.user.username }}</a>{% else %}{{ item.user.get_full_name|default:item.user.username }}{% endif %}{% if not forloop.last %}, {% endif %}
-            {% empty %}Sin asignar{% endfor %}
+          <div class="col-sm-6">Técnicos:
+            {% for item in technicians_info %}{% if item.url %}<a href="{{ item.url }}">{{ item.user.get_full_name|default:item.user.username }}</a>{% else %}{{ item.user.get_full_name|default:item.user.username }}{% endif %}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}
           </div>
-          <div class="col-md-6">Vehículo:
+          <div class="col-sm-6">Vehículo:
             {% if task.vehicle and vehicle_url %}<a id="task-info-vehicle" href="{{ vehicle_url }}">{{ task.vehicle }}</a>{% else %}<span id="task-info-vehicle">{{ task.vehicle|default:'Sin vehículo' }}</span>{% endif %}
           </div>
-          <div class="col-md-6">Creada: {{ task.created_at|date:'d/m/Y H:i' }}</div>
-          <div class="col-md-6">Actualizada: {{ task.updated_at|date:'d/m/Y H:i' }}</div>
+          <div class="col-sm-6">Creada: {{ task.created_at|date:'d/m/Y H:i' }}</div>
+          <div class="col-sm-6">Actualizada: {{ task.updated_at|date:'d/m/Y H:i' }}</div>
         </div>
-        {% if map_coords %}
-        <div class="d-flex flex-wrap gap-2 mt-3">
+
+        <div class="d-flex flex-wrap gap-2">
+          {% if map_coords %}
           <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination={{ map_coords }}">Cómo llegar</a>
-          <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ map_coords }}">Abrir en Google Maps</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'parte_form' %}?task={{ task.pk }}">Crear parte</a>
-          {% if can_edit_task %}<form class="d-inline" method="post" action="{% url 'workdocs_task_continue' task.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" type="submit">Continuar tarea</button></form>{% endif %}
+          <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ map_coords }}">Google Maps</a>
+          {% elif task.address %}
+          <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ task.address|urlencode }}">Google Maps</a>
+          {% endif %}
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'parte_form' %}?task={{ task.pk %}">Crear parte</a>
+          <a class="btn btn-sm btn-outline-secondary" href="{% url 'workdocs_task_pdf' task.pk %}" target="_blank" rel="noopener">Exportar PDF</a>
+          {% if can_edit_task %}
+          <form class="d-inline" method="post" action="{% url 'workdocs_task_continue' task.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" type="submit">Continuar tarea</button></form>
+          {% endif %}
         </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── MAP TAB ── #}
+  {% if map_coords or task.address %}
+  <div class="tab-pane fade" id="tab-map" role="tabpanel">
+    <div class="card border-0 shadow-sm overflow-hidden">
+      <div id="task-view-map" style="height:440px;"></div>
+      <div class="card-footer d-flex flex-wrap gap-2">
+        {% if map_coords %}
+        <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination={{ map_coords }}">Cómo llegar</a>
+        <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ map_coords }}">Abrir Google Maps</a>
         {% elif task.address %}
-        <div class="d-flex flex-wrap gap-2 mt-3">
-          <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ task.address|urlencode }}">Abrir en Google Maps</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'parte_form' %}?task={{ task.pk }}">Crear parte</a>
-          {% if can_edit_task %}<form class="d-inline" method="post" action="{% url 'workdocs_task_continue' task.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" type="submit">Continuar tarea</button></form>{% endif %}
-        </div>
-        {% else %}
-        <div class="d-flex flex-wrap gap-2 mt-3">
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'parte_form' %}?task={{ task.pk }}">Crear parte</a>
-          {% if can_edit_task %}<form class="d-inline" method="post" action="{% url 'workdocs_task_continue' task.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" type="submit">Continuar tarea</button></form>{% endif %}
-        </div>
+        <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ task.address|urlencode }}">Abrir Google Maps</a>
         {% endif %}
       </div>
     </div>
+  </div>
+  {% endif %}
 
-    <div class="card border-0 shadow-sm mb-3" id="task-comments">
-      <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
-        <span>Chat</span>
-        <span class="badge text-bg-secondary {% if not chat_items %}d-none{% endif %}" id="chat-count-badge">{{ chat_items|length }}</span>
-      </div>
-      <div class="card-body task-comments {% if chat_items|length > 3 %}task-comments-scroll{% endif %}" id="chat-items">
+  {# ── CHAT TAB ── #}
+  <div class="tab-pane fade" id="tab-chat" role="tabpanel">
+    <div class="card border-0 shadow-sm" id="task-comments">
+      <div class="card-body task-comments {% if chat_items|length > 5 %}task-comments-scroll{% endif %}" id="chat-items">
         {% for item in chat_items %}
         {% include 'workdocs/partials_chat_item.html' with item=item %}
         {% empty %}
@@ -102,65 +205,61 @@
         </div>
       </form>
     </div>
+  </div>
 
-    {% if can_edit_task %}
-    <div class="card border-0 shadow-sm mb-3">
-      <button class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center border-0" type="button" data-bs-toggle="collapse" data-bs-target="#task-edit-panel" aria-expanded="false" aria-controls="task-edit-panel">
-        <span>Editar tarea</span>
-        <span class="compact-meta">Abrir si necesitas cambiar datos</span>
-      </button>
-      <div class="collapse" id="task-edit-panel">
-      <form method="post" enctype="multipart/form-data" id="task-autosave-form" data-autosave="true">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="update_task">
-        <div class="card-body">
-          {% include 'workdocs/task_editor_fields.html' with form=task_form %}
+  {# ── MATERIALS TAB ── #}
+  <div class="tab-pane fade" id="tab-materials" role="tabpanel">
+    <div class="card border-0 shadow-sm" id="task-materials-card">
+      <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
+        <span>Materiales necesarios</span>
+        <div class="d-none d-sm-flex gap-2 compact-meta">
+          <span class="mat-st-dot mat-st-falta">Falta</span>
+          <span class="mat-st-dot mat-st-pedido">Pedido</span>
+          <span class="mat-st-dot mat-st-almacen">Almacén</span>
+          <span class="mat-st-dot mat-st-objeto">En obra</span>
         </div>
-        <div class="card-footer bg-white compact-meta" id="task-autosave-status">Los cambios se guardan automáticamente.</div>
-      </form>
       </div>
-    </div>
-    {% endif %}
-
-    <div class="card">
-      <button class="card-header fw-semibold d-flex justify-content-between align-items-center border-0" type="button" data-bs-toggle="collapse" data-bs-target="#task-history" aria-expanded="false" aria-controls="task-history">
-        <span>Historia</span>
-        <span class="badge text-bg-secondary">{{ events|length }}</span>
-      </button>
-      <div class="collapse" id="task-history">
-      <div class="card-body timeline">
-        {% for event in events %}
-        <div class="timeline-item">
-          <div class="d-flex justify-content-between gap-2">
-            <div class="fw-semibold">{{ event.get_event_type_display }}</div>
-            <div class="compact-meta">{{ event.created_at|date:'d/m/Y H:i' }}</div>
+      <div class="card-body">
+        <div class="material-search-wrap mb-3">
+          <input type="text" class="form-control form-control-sm" id="material-search-input" placeholder="Buscar o añadir material..." autocomplete="off">
+          <div class="material-results d-none" id="material-results"></div>
+        </div>
+        <div class="d-none mb-3" id="material-add-panel">
+          <div class="material-add-panel">
+            <div class="compact-meta mb-2" id="material-add-label">Añadir:</div>
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+              <input type="number" class="material-qty-input" id="material-qty-input" value="1" min="0.01" step="any" placeholder="Cant." style="width:70px">
+              <select class="material-unit-select" id="material-unit-select">
+                <option value="uds">uds</option>
+                <option value="m">m</option>
+                <option value="m²">m²</option>
+                <option value="kg">kg</option>
+                <option value="l">l</option>
+                <option value="rollos">rollos</option>
+                <option value="cajas">cajas</option>
+                <option value="otros">otros</option>
+              </select>
+              <button class="btn btn-sm btn-primary" type="button" id="material-save-btn">Añadir</button>
+              <button class="btn btn-sm btn-outline-secondary" type="button" id="material-cancel-btn">Cancelar</button>
+            </div>
           </div>
-          <div class="compact-meta">{{ event.user.get_full_name|default:event.user.username }}</div>
-          {% if event.comment %}<div class="mt-1">{{ event.comment|linebreaksbr }}</div>{% endif %}
-          {% if event.event_type == 'file' %}
-          <a class="small timeline-jump" href="#task-files">Ver archivos</a>
-          {% elif event.event_type == 'comment' %}
-          <a class="small timeline-jump" href="#task-comments">Ver comentarios</a>
-          {% elif event.event_type == 'audio' %}
-          <a class="small timeline-jump" href="#task-comments">Ver audio en chat</a>
-          {% endif %}
         </div>
-        {% empty %}
-        <div class="compact-meta">Sin eventos.</div>
-        {% endfor %}
-      </div>
+        <div id="task-materials-list">
+          <div class="compact-meta material-empty-state py-2">Sin materiales. Escribe en el campo de arriba para añadir.</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="col-lg-4">
+  {# ── FILES TAB ── #}
+  <div class="tab-pane fade" id="tab-files" role="tabpanel">
     <div class="card border-0 shadow-sm mb-3">
-      <div class="card-header bg-white fw-semibold">Materiales</div>
+      <div class="card-header fw-semibold">Subir documentos y fotos</div>
       <form method="post" enctype="multipart/form-data" id="file-upload-form" data-autosubmit="file">
         {% csrf_token %}
         <input type="hidden" name="action" value="upload_files">
         <div class="card-body">
-          <div class="d-flex flex-wrap gap-2">
+          <div class="d-flex flex-wrap gap-2 mb-2">
             <label class="btn btn-sm btn-outline-primary mb-0" for="{{ file_form.files.id_for_label }}">Subir archivo</label>
             <label class="btn btn-sm btn-outline-primary mb-0" for="id_camera_file">Hacer foto</label>
           </div>
@@ -177,10 +276,10 @@
       </form>
     </div>
 
-    <div class="card border-0 shadow-sm mb-3" id="task-files">
-      <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center gap-2">
-        <span>Archivos</span>
-        <div class="btn-group btn-group-sm" role="group" aria-label="Filtrar archivos">
+    <div class="card border-0 shadow-sm" id="task-files">
+      <div class="card-header fw-semibold d-flex justify-content-between align-items-center gap-2">
+        <span>Archivos subidos</span>
+        <div class="btn-group btn-group-sm" role="group">
           <button class="btn btn-outline-primary active" type="button" data-file-filter="all">Todos</button>
           <button class="btn btn-outline-primary" type="button" data-file-filter="technician">Técnico</button>
           <button class="btn btn-outline-primary" type="button" data-file-filter="admin">Admin</button>
@@ -197,7 +296,108 @@
       </div>
     </div>
   </div>
+
+  {# ── EDIT TAB ── #}
+  {% if can_edit_task %}
+  <div class="tab-pane fade" id="tab-edit" role="tabpanel">
+    <div class="card border-0 shadow-sm">
+      <form method="post" enctype="multipart/form-data" id="task-autosave-form" data-autosave="true">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_task">
+        <div class="card-body">
+          {% include 'workdocs/task_editor_fields.html' with form=task_form %}
+        </div>
+        <div class="card-footer compact-meta" id="task-autosave-status">Los cambios se guardan automáticamente.</div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── INFORME TAB (technicians only) ── #}
+  {% if role == 'technician' %}
+  <div class="tab-pane fade" id="tab-informe" role="tabpanel">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header fw-semibold">Informe de jornada</div>
+      <div class="card-body">
+        {% if my_worker_report.is_finished %}
+        <div class="alert alert-success py-2 compact-meta mb-3">Informe enviado y jornada cerrada.</div>
+        {% endif %}
+
+        <div class="mb-3">
+          <label class="form-label">Tipo de jornada</label>
+          <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-sm jornada-btn {% if not my_worker_report or my_worker_report.jornada == 'normal' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-jornada="normal">Normal (1h comida)</button>
+            <button class="btn btn-sm jornada-btn {% if my_worker_report.jornada == 'intensiva' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-jornada="intensiva">Intensiva (sin pausa)</button>
+          </div>
+        </div>
+
+        <div id="informe-normal-fields" {% if my_worker_report.jornada == 'intensiva' %}class="d-none"{% endif %}>
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label compact-meta">Hora de comida</label>
+              <input type="time" class="form-control form-control-sm informe-field" id="informe-hora-comida" value="{{ my_worker_report.hora_comida|time:'H:i'|default:'' }}">
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label compact-meta">Gastos de comida (€)</label>
+              <input type="number" class="form-control form-control-sm informe-field" id="informe-gastos" step="0.01" min="0" value="{{ my_worker_report.gastos_comida|default:'0' }}">
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-sm-6">
+            <label class="form-label compact-meta">Hora llegada al objeto</label>
+            <input type="time" class="form-control form-control-sm informe-field" id="informe-entrada-obra" value="{{ my_worker_report.entrada_obra|time:'H:i'|default:auto_entrada_obra }}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label compact-meta">Hora salida del objeto</label>
+            <input type="time" class="form-control form-control-sm informe-field" id="informe-salida-obra" value="{{ my_worker_report.salida_obra|time:'H:i'|default:auto_salida_obra }}">
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label compact-meta">Trabajos realizados</label>
+          <div class="informe-voice-row">
+            <textarea class="form-control form-control-sm informe-field" id="informe-trabajos" rows="4" placeholder="Describe los trabajos realizados...">{{ my_worker_report.trabajos_realizados|default:'' }}</textarea>
+            <div class="informe-voice-btns">
+              <button class="btn btn-sm btn-outline-primary informe-rec-start" type="button" id="informe-rec-start" title="Grabar voz">🎙</button>
+              <button class="btn btn-sm btn-danger d-none informe-rec-stop" type="button" id="informe-rec-stop" title="Parar">■</button>
+            </div>
+          </div>
+          <div class="compact-meta mt-1" id="informe-rec-status"></div>
+        </div>
+
+        <div class="d-flex gap-2 align-items-center">
+          <button class="btn btn-primary btn-sm" type="button" id="informe-save-btn">Guardar informe</button>
+          <span class="compact-meta" id="informe-save-status"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── HISTORY TAB ── #}
+  <div class="tab-pane fade" id="tab-history" role="tabpanel">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body timeline">
+        {% for event in events %}
+        <div class="timeline-item">
+          <div class="d-flex justify-content-between gap-2">
+            <div class="fw-semibold">{{ event.get_event_type_display }}</div>
+            <div class="compact-meta">{{ event.created_at|date:'d/m/Y H:i' }}</div>
+          </div>
+          <div class="compact-meta">{{ event.user.get_full_name|default:event.user.username }}</div>
+          {% if event.comment %}<div class="mt-1">{{ event.comment|linebreaksbr }}</div>{% endif %}
+        </div>
+        {% empty %}
+        <div class="compact-meta">Sin eventos.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
 </div>
+
 <div class="pdf-preview-overlay" id="pdf-preview-overlay" hidden>
   <div class="pdf-preview-toolbar">
     <div class="pdf-preview-title" id="pdf-preview-title"></div>
@@ -212,300 +412,571 @@
 {% include 'workdocs/task_form_scripts.html' %}
 <script>
 (() => {
+  /* ── Audio recording ── */
   const startBtn = document.getElementById('record-audio');
   const stopBtn = document.getElementById('stop-audio');
   const input = document.getElementById('id_audio_file');
   const status = document.getElementById('record-status');
-  if (!startBtn || !navigator.mediaDevices) return;
-  let recorder;
-  let chunks = [];
-  startBtn.addEventListener('click', async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    recorder = new MediaRecorder(stream);
-    chunks = [];
-    recorder.ondataavailable = event => chunks.push(event.data);
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
-      const file = new File([blob], `informe-${Date.now()}.webm`, { type: blob.type });
-      const data = new DataTransfer();
-      data.items.add(file);
-      input.files = data.files;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      stream.getTracks().forEach(track => track.stop());
-      status.textContent = 'Audio grabado. Subiendo...';
-    };
-    recorder.start();
-    startBtn.classList.add('d-none');
-    stopBtn.classList.remove('d-none');
-    status.textContent = 'Grabando audio...';
-  });
-  stopBtn.addEventListener('click', () => {
-    if (recorder && recorder.state === 'recording') recorder.stop();
-    stopBtn.classList.add('d-none');
-    startBtn.classList.remove('d-none');
-  });
-})();
-
-document.addEventListener('DOMContentLoaded', () => {
-  const pdfOverlay = document.getElementById('pdf-preview-overlay');
-  const pdfFrame = document.getElementById('pdf-preview-frame');
-  const pdfTitle = document.getElementById('pdf-preview-title');
-  const pdfClose = document.getElementById('pdf-preview-close');
-  const closePdf = () => {
-    if (!pdfOverlay || !pdfFrame) return;
-    pdfOverlay.hidden = true;
-    pdfFrame.removeAttribute('src');
-    document.body.classList.remove('pdf-preview-open');
-  };
-  document.addEventListener('click', event => {
-    const button = event.target.closest('.pdf-preview-button');
-    if (!button || !pdfOverlay || !pdfFrame || !pdfTitle) return;
-    pdfTitle.textContent = button.dataset.pdfTitle || 'Vista previa';
-    pdfFrame.src = button.dataset.pdfUrl;
-    pdfOverlay.hidden = false;
-    document.body.classList.add('pdf-preview-open');
-  });
-  pdfClose?.addEventListener('click', closePdf);
-  pdfOverlay?.addEventListener('click', event => {
-    if (event.target === pdfOverlay) closePdf();
-  });
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') closePdf();
-  });
-  document.querySelectorAll('.timeline-jump').forEach(link => {
-    link.addEventListener('click', () => {
-      const target = document.querySelector(link.getAttribute('href'));
-      if (!target) return;
-      window.setTimeout(() => {
-        target.classList.remove('history-highlight');
-        void target.offsetWidth;
-        target.classList.add('history-highlight');
-      }, 80);
+  if (startBtn && navigator.mediaDevices) {
+    let recorder, chunks = [];
+    startBtn.addEventListener('click', async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recorder = new MediaRecorder(stream);
+      chunks = [];
+      recorder.ondataavailable = e => chunks.push(e.data);
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+        const file = new File([blob], `informe-${Date.now()}.webm`, { type: blob.type });
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        stream.getTracks().forEach(t => t.stop());
+        status.textContent = 'Audio grabado. Subiendo...';
+      };
+      recorder.start();
+      startBtn.classList.add('d-none');
+      stopBtn.classList.remove('d-none');
+      status.textContent = 'Grabando audio...';
     });
-  });
-  const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
-  const autosaveForm = document.getElementById('task-autosave-form');
-  const autosaveStatus = document.getElementById('task-autosave-status');
-  let autosaveTimer;
-  const formatErrors = data => {
-    if (!data || !data.errors) return '';
-    return Object.values(data.errors).flat().join(' ');
-  };
-  const submitForm = async (form, statusEl, successText, failureText, pendingText = 'Guardando...') => {
-    if (!form) return false;
-    if (statusEl) statusEl.textContent = pendingText;
-    const response = await fetch(form.getAttribute('action') || window.location.href, {
-      method: 'POST',
-      body: new FormData(form),
-      credentials: 'same-origin',
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-        ...(csrf ? {'X-CSRFToken': csrf} : {}),
-      },
-    });
-    const isJson = response.headers.get('content-type')?.includes('application/json');
-    const data = isJson ? await response.json() : null;
-    if (!response.ok) {
-      const detail = formatErrors(data) || `HTTP ${response.status}`;
-      if (statusEl) statusEl.textContent = `${failureText}: ${detail}`;
-      return false;
-    }
-    if (statusEl) statusEl.textContent = successText;
-    return data || {ok: true};
-  };
-  const updateChatBadge = amount => {
-    const chatBadge = document.getElementById('chat-count-badge');
-    if (!chatBadge) return;
-    const current = parseInt(chatBadge.textContent || '0', 10) || 0;
-    chatBadge.textContent = String(current + amount);
-    chatBadge.classList.remove('d-none');
-  };
-  const appendChatItems = htmlList => {
-    const chatItems = document.getElementById('chat-items');
-    if (!chatItems || !htmlList?.length) return;
-    chatItems.querySelector('.chat-empty-state')?.remove();
-    htmlList.forEach(html => {
-      const template = document.createElement('template');
-      template.innerHTML = html.trim();
-      chatItems.appendChild(template.content);
-    });
-    chatItems.classList.toggle('task-comments-scroll', chatItems.querySelectorAll('.task-comment').length > 3);
-    updateChatBadge(htmlList.length);
-  };
-  const applyFileFilter = () => {
-    const active = document.querySelector('[data-file-filter].active');
-    const filter = active?.dataset.fileFilter || 'all';
-    document.querySelectorAll('.task-file-item').forEach(item => {
-      item.classList.toggle('d-none', filter !== 'all' && item.dataset.uploaderRole !== filter);
-    });
-  };
-  const appendTaskFiles = htmlList => {
-    const list = document.getElementById('task-files-list');
-    if (!list || !htmlList?.length) return;
-    list.querySelector('.task-files-empty')?.remove();
-    htmlList.forEach(html => {
-      const template = document.createElement('template');
-      template.innerHTML = html.trim();
-      list.prepend(template.content);
-    });
-    applyFileFilter();
-  };
-
-  if (autosaveForm) {
-    const scheduleAutosave = () => {
-      window.clearTimeout(autosaveTimer);
-      autosaveStatus.textContent = 'Cambios pendientes...';
-      autosaveTimer = window.setTimeout(() => {
-        submitForm(autosaveForm, autosaveStatus, 'Guardado automáticamente.', 'No se pudo guardar la tarea', 'Guardando...');
-      }, 650);
-    };
-    autosaveForm.querySelectorAll('input, textarea, select').forEach(field => {
-      if (field.name === 'csrfmiddlewaretoken' || field.name === 'action') return;
-      field.addEventListener(field.type === 'text' || field.tagName === 'TEXTAREA' ? 'input' : 'change', scheduleAutosave);
+    stopBtn.addEventListener('click', () => {
+      if (recorder?.state === 'recording') recorder.stop();
+      stopBtn.classList.add('d-none');
+      startBtn.classList.remove('d-none');
     });
   }
 
-  const fileForm = document.getElementById('file-upload-form');
-  const fileInputs = fileForm?.querySelectorAll('input[type=file][name=files]');
-  const fileStatus = document.getElementById('file-upload-status');
-  const fileCommentToggle = document.getElementById('with-file-comment');
-  const fileCommentField = document.getElementById('file-comment-field');
-  fileCommentToggle?.addEventListener('change', () => {
-    fileCommentField?.classList.toggle('d-none', !fileCommentToggle.checked);
+  /* ── Read-only map tab ── */
+  {% if map_coords or task.address %}
+  (() => {
+    const mapTab = document.getElementById('map-tab-btn');
+    let mapInit = false;
+    const initViewMap = async () => {
+      if (mapInit) return;
+      mapInit = true;
+      const mapEl = document.getElementById('task-view-map');
+      if (!mapEl) return;
+      let lat, lng;
+      {% if map_coords %}
+      [lat, lng] = '{{ map_coords }}'.split(',').map(Number);
+      {% else %}
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent('{{ task.address|escapejs }}')}`);
+      const data = await res.json();
+      lat = data.length ? parseFloat(data[0].lat) : 43.2630;
+      lng = data.length ? parseFloat(data[0].lon) : -2.9350;
+      {% endif %}
+      const map = L.map(mapEl).setView([lat, lng], 16);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+      L.marker([lat, lng]).addTo(map);
+    };
+    mapTab?.addEventListener('shown.bs.tab', initViewMap);
+  })();
+  {% endif %}
+
+  /* ── Edit tab: fix Leaflet map when pane becomes visible ── */
+  document.getElementById('edit-tab-btn')?.addEventListener('shown.bs.tab', () => {
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 150);
   });
-  fileInputs?.forEach(fileInput => {
-    fileInput.addEventListener('change', async () => {
-      if (!fileInput.files.length) return;
-      const data = await submitForm(fileForm, fileStatus, 'Archivo subido.', 'No se pudo subir el archivo', 'Subiendo archivo...');
-      if (!data) return;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+    /* ── PDF preview ── */
+    const pdfOverlay = document.getElementById('pdf-preview-overlay');
+    const pdfFrame = document.getElementById('pdf-preview-frame');
+    const pdfTitle = document.getElementById('pdf-preview-title');
+    const closePdf = () => {
+      if (!pdfOverlay || !pdfFrame) return;
+      pdfOverlay.hidden = true;
+      pdfFrame.removeAttribute('src');
+      document.body.classList.remove('pdf-preview-open');
+    };
+    document.addEventListener('click', event => {
+      const btn = event.target.closest('.pdf-preview-button');
+      if (!btn || !pdfOverlay || !pdfFrame || !pdfTitle) return;
+      pdfTitle.textContent = btn.dataset.pdfTitle || 'Vista previa';
+      pdfFrame.src = btn.dataset.pdfUrl;
+      pdfOverlay.hidden = false;
+      document.body.classList.add('pdf-preview-open');
+    });
+    document.getElementById('pdf-preview-close')?.addEventListener('click', closePdf);
+    pdfOverlay?.addEventListener('click', e => { if (e.target === pdfOverlay) closePdf(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closePdf(); });
+
+    /* ── Helpers ── */
+    const updateChatBadge = n => {
+      const badge = document.getElementById('chat-count-badge');
+      if (!badge) return;
+      badge.textContent = String((parseInt(badge.textContent || '0') || 0) + n);
+      badge.classList.remove('d-none');
+    };
+    const appendChatItems = htmlList => {
+      const chatItems = document.getElementById('chat-items');
+      if (!chatItems || !htmlList?.length) return;
+      chatItems.querySelector('.chat-empty-state')?.remove();
+      htmlList.forEach(html => {
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html.trim();
+        chatItems.appendChild(tpl.content);
+      });
+      chatItems.classList.toggle('task-comments-scroll', chatItems.querySelectorAll('.task-comment').length > 5);
+      updateChatBadge(htmlList.length);
+    };
+    const applyFileFilter = () => {
+      const filter = document.querySelector('[data-file-filter].active')?.dataset.fileFilter || 'all';
+      document.querySelectorAll('.task-file-item').forEach(item => {
+        item.classList.toggle('d-none', filter !== 'all' && item.dataset.uploaderRole !== filter);
+      });
+    };
+    const appendTaskFiles = htmlList => {
+      const list = document.getElementById('task-files-list');
+      if (!list || !htmlList?.length) return;
+      list.querySelector('.task-files-empty')?.remove();
+      htmlList.forEach(html => {
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html.trim();
+        list.prepend(tpl.content);
+      });
+      applyFileFilter();
+    };
+    const submitForm = async (form, statusEl, successText, failureText, pendingText = 'Guardando...') => {
+      if (!form) return false;
+      if (statusEl) statusEl.textContent = pendingText;
+      const response = await fetch(form.getAttribute('action') || window.location.href, {
+        method: 'POST', body: new FormData(form), credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', ...(csrf ? {'X-CSRFToken': csrf} : {}) },
+      });
+      const isJson = response.headers.get('content-type')?.includes('application/json');
+      const data = isJson ? await response.json() : null;
+      if (!response.ok) {
+        const detail = (data?.errors ? Object.values(data.errors).flat().join(' ') : '') || `HTTP ${response.status}`;
+        if (statusEl) statusEl.textContent = `${failureText}: ${detail}`;
+        return false;
+      }
+      if (statusEl) statusEl.textContent = successText;
+      return data || { ok: true };
+    };
+
+    /* ── Autosave form ── */
+    const autosaveForm = document.getElementById('task-autosave-form');
+    const autosaveStatus = document.getElementById('task-autosave-status');
+    let autosaveTimer;
+    if (autosaveForm) {
+      autosaveForm.querySelectorAll('input, textarea, select').forEach(field => {
+        if (field.name === 'csrfmiddlewaretoken' || field.name === 'action') return;
+        field.addEventListener(field.type === 'text' || field.tagName === 'TEXTAREA' ? 'input' : 'change', () => {
+          clearTimeout(autosaveTimer);
+          autosaveStatus.textContent = 'Cambios pendientes...';
+          autosaveTimer = setTimeout(() => {
+            submitForm(autosaveForm, autosaveStatus, 'Guardado automáticamente.', 'No se pudo guardar');
+          }, 650);
+        });
+      });
+    }
+
+    /* ── File upload ── */
+    const fileForm = document.getElementById('file-upload-form');
+    const fileStatus = document.getElementById('file-upload-status');
+    const fileCommentToggle = document.getElementById('with-file-comment');
+    const fileCommentField = document.getElementById('file-comment-field');
+    fileCommentToggle?.addEventListener('change', () => {
+      fileCommentField?.classList.toggle('d-none', !fileCommentToggle.checked);
+    });
+    fileForm?.querySelectorAll('input[type=file][name=files]').forEach(fileInput => {
+      fileInput.addEventListener('change', async () => {
+        if (!fileInput.files.length) return;
+        const data = await submitForm(fileForm, fileStatus, 'Archivo subido.', 'Error al subir', 'Subiendo...');
+        if (!data) return;
+        appendChatItems(data.item_html || []);
+        appendTaskFiles(data.file_html || []);
+        fileForm.querySelectorAll('input[type=file][name=files]').forEach(i => { i.value = ''; });
+      });
+    });
+    document.querySelectorAll('[data-file-filter]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-file-filter]').forEach(b => b.classList.toggle('active', b === btn));
+        applyFileFilter();
+      });
+    });
+    document.getElementById('task-files-list')?.addEventListener('submit', async event => {
+      const form = event.target.closest('.task-file-delete-form');
+      if (!form) return;
+      event.preventDefault();
+      const response = await fetch(form.action, {
+        method: 'POST', body: new FormData(form), credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', ...(csrf ? {'X-CSRFToken': csrf} : {}) },
+      });
+      const data = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
+      if (!response.ok || !data?.ok) return;
+      document.getElementById(`task-file-${data.file_id}`)?.remove();
+      document.getElementById(`file-${data.file_id}`)?.remove();
+    });
+
+    /* ── Chat ── */
+    const chatForm = document.getElementById('chat-composer-form');
+    const chatAction = document.getElementById('chat-action');
+    const commentTextarea = chatForm?.querySelector('textarea');
+    const chatFileInput = document.getElementById('chat-file-input');
+    const voiceInput = document.getElementById('id_audio_file');
+    const voiceStatus = document.getElementById('record-status');
+    const replyTo = document.getElementById('comment-reply-to');
+    const replyPreview = document.getElementById('comment-reply-preview');
+    const replyAuthor = document.getElementById('comment-reply-author');
+    const replyText = document.getElementById('comment-reply-text');
+    const chatItems = document.getElementById('chat-items');
+    const clearReply = () => {
+      if (replyTo) replyTo.value = '';
+      replyPreview?.classList.add('d-none');
+    };
+    const submitChat = async (action, pendingText, failureText) => {
+      if (!chatForm || !chatAction) return false;
+      chatAction.value = action;
+      if (voiceStatus) voiceStatus.textContent = pendingText || '';
+      const response = await fetch(window.location.href, {
+        method: 'POST', body: new FormData(chatForm), credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', ...(csrf ? {'X-CSRFToken': csrf} : {}) },
+      });
+      const data = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
+      if (!response.ok || !data?.ok) {
+        if (voiceStatus) voiceStatus.textContent = failureText || 'No se pudo enviar.';
+        return false;
+      }
       appendChatItems(data.item_html || []);
       appendTaskFiles(data.file_html || []);
-      fileInputs.forEach(input => { input.value = ''; });
+      if (voiceStatus) voiceStatus.textContent = '';
+      return true;
+    };
+    chatForm?.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!commentTextarea?.value.trim()) return;
+      const ok = await submitChat('comment', '', 'No se pudo enviar.');
+      if (!ok) return;
+      commentTextarea.value = '';
+      clearReply();
     });
-  });
+    commentTextarea?.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' || event.shiftKey) return;
+      event.preventDefault();
+      if (commentTextarea.value.trim()) chatForm?.requestSubmit();
+    });
+    chatFileInput?.addEventListener('change', async () => {
+      if (!chatFileInput.files.length) return;
+      const ok = await submitChat('upload_files', 'Subiendo...', 'Error al subir.');
+      if (ok) chatFileInput.value = '';
+    });
+    chatItems?.addEventListener('click', event => {
+      const btn = event.target.closest('.comment-reply-button');
+      if (!btn || !replyTo || !replyPreview || !replyAuthor || !replyText) return;
+      replyTo.value = btn.dataset.commentId;
+      replyAuthor.textContent = btn.dataset.commentAuthor || '';
+      replyText.textContent = btn.dataset.commentText || '';
+      replyPreview.classList.remove('d-none');
+      commentTextarea?.focus();
+    });
+    document.getElementById('comment-reply-clear')?.addEventListener('click', clearReply);
+    chatItems?.addEventListener('submit', async event => {
+      const form = event.target.closest('.comment-reactions');
+      if (!form) return;
+      event.preventDefault();
+      const data = new FormData(form);
+      if (event.submitter?.name) data.set(event.submitter.name, event.submitter.value);
+      const response = await fetch(form.action, {
+        method: 'POST', body: data, credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', ...(csrf ? {'X-CSRFToken': csrf} : {}) },
+      });
+      const result = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
+      if (!response.ok || !result?.ok) return;
+      const list = form.closest('.task-comment')?.querySelector('.comment-reaction-list');
+      if (list) list.innerHTML = Object.entries(result.reactions || {}).map(([e, c]) => `<span class="comment-reaction-count">${e} ${c}</span>`).join('');
+    });
+    voiceInput?.addEventListener('change', async () => {
+      if (!voiceInput.files.length) return;
+      const ok = await submitChat('voice', 'Subiendo audio...', 'Error al subir audio.');
+      if (ok) voiceInput.value = '';
+    });
 
-  document.querySelectorAll('[data-file-filter]').forEach(button => {
-    button.addEventListener('click', () => {
-      document.querySelectorAll('[data-file-filter]').forEach(item => item.classList.toggle('active', item === button));
-      applyFileFilter();
-    });
-  });
-  document.getElementById('task-files-list')?.addEventListener('submit', async event => {
-    const form = event.target.closest('.task-file-delete-form');
-    if (!form) return;
-    event.preventDefault();
-    const response = await fetch(form.action, {
-      method: 'POST',
-      body: new FormData(form),
-      credentials: 'same-origin',
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-        ...(csrf ? {'X-CSRFToken': csrf} : {}),
-      },
-    });
-    const data = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
-    if (!response.ok || !data?.ok) return;
-    document.getElementById(`task-file-${data.file_id}`)?.remove();
-    document.getElementById(`file-${data.file_id}`)?.remove();
-  });
+    /* ── Materials ── */
+    const matSearchInput = document.getElementById('material-search-input');
+    const matResults = document.getElementById('material-results');
+    const matAddPanel = document.getElementById('material-add-panel');
+    const matAddLabel = document.getElementById('material-add-label');
+    const matQtyInput = document.getElementById('material-qty-input');
+    const matUnitSelect = document.getElementById('material-unit-select');
+    const matSaveBtn = document.getElementById('material-save-btn');
+    const matCancelBtn = document.getElementById('material-cancel-btn');
+    const matList = document.getElementById('task-materials-list');
+    const matCountBadge = document.getElementById('materials-count-badge');
+    const materialsUrl = '{% url "workdocs_task_materials" task.pk %}';
+    const materialUpdateBase = '{% url "workdocs_task_material_update" task.pk 0 %}'.replace('/0/', '/');
 
-  const replyTo = document.getElementById('comment-reply-to');
-  const replyPreview = document.getElementById('comment-reply-preview');
-  const replyAuthor = document.getElementById('comment-reply-author');
-  const replyText = document.getElementById('comment-reply-text');
-  const chatForm = document.getElementById('chat-composer-form');
-  const chatAction = document.getElementById('chat-action');
-  const commentTextarea = document.querySelector('#chat-composer-form textarea');
-  const chatFileInput = document.getElementById('chat-file-input');
-  const voiceInput = document.getElementById('id_audio_file');
-  const voiceStatus = document.getElementById('record-status');
-  const chatItems = document.getElementById('chat-items');
-  const clearReply = () => {
-    if (replyTo) replyTo.value = '';
-    replyPreview?.classList.add('d-none');
-  };
-  const submitChat = async (action, pendingText, failureText) => {
-    if (!chatForm || !chatAction) return false;
-    chatAction.value = action;
-    if (voiceStatus) voiceStatus.textContent = pendingText || '';
-    const response = await fetch(chatForm.getAttribute('action') || window.location.href, {
-      method: 'POST',
-      body: new FormData(chatForm),
-      credentials: 'same-origin',
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-        ...(csrf ? {'X-CSRFToken': csrf} : {}),
-      },
-    });
-    const data = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
-    if (!response.ok || !data?.ok) {
-      if (voiceStatus) voiceStatus.textContent = failureText || 'No se pudo enviar.';
-      return false;
-    }
-    appendChatItems(data.item_html || []);
-    appendTaskFiles(data.file_html || []);
-    if (voiceStatus) voiceStatus.textContent = '';
-    return true;
-  };
-  chatForm?.addEventListener('submit', async event => {
-    event.preventDefault();
-    if (!commentTextarea?.value.trim()) return;
-    const ok = await submitChat('comment', '', 'No se pudo enviar el mensaje.');
-    if (!ok) return;
-    commentTextarea.value = '';
-    clearReply();
-  });
-  commentTextarea?.addEventListener('keydown', event => {
-    if (event.key !== 'Enter' || event.shiftKey) return;
-    event.preventDefault();
-    if (!commentTextarea.value.trim()) return;
-    chatForm?.requestSubmit();
-  });
-  chatFileInput?.addEventListener('change', async () => {
-    if (!chatFileInput.files.length || !chatForm) return;
-    const ok = await submitChat('upload_files', 'Subiendo archivo...', 'No se pudo subir el archivo.');
-    if (ok) chatFileInput.value = '';
-  });
-  chatItems?.addEventListener('click', event => {
-    const button = event.target.closest('.comment-reply-button');
-    if (!button || !replyTo || !replyPreview || !replyAuthor || !replyText) return;
-    replyTo.value = button.dataset.commentId;
-    replyAuthor.textContent = button.dataset.commentAuthor || '';
-    replyText.textContent = button.dataset.commentText || '';
-    replyPreview.classList.remove('d-none');
-    commentTextarea?.focus();
-  });
-  document.getElementById('comment-reply-clear')?.addEventListener('click', clearReply);
-  chatItems?.addEventListener('submit', async event => {
-    const form = event.target.closest('.comment-reactions');
-    if (!form) return;
-    event.preventDefault();
-    const submitter = event.submitter;
-    const data = new FormData(form);
-    if (submitter?.name) data.set(submitter.name, submitter.value);
-    const response = await fetch(form.action, {
-      method: 'POST',
-      body: data,
-      credentials: 'same-origin',
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-        ...(csrf ? {'X-CSRFToken': csrf} : {}),
-      },
-    });
-    const result = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
-    if (!response.ok || !result?.ok) return;
-    const list = form.closest('.task-comment')?.querySelector('.comment-reaction-list');
-    if (!list) return;
-    list.innerHTML = Object.entries(result.reactions || {})
-      .map(([emoji, count]) => `<span class="comment-reaction-count">${emoji} ${count}</span>`)
-      .join('');
-  });
+    let selectedMaterial = null;
+    let matSearchTimer = null;
 
-  voiceInput?.addEventListener('change', async () => {
-    if (!voiceInput.files.length) return;
-    const ok = await submitChat('voice', 'Subiendo audio...', 'No se pudo subir el audio.');
-    if (ok) voiceInput.value = '';
+    const matFetch = (url, opts = {}) => fetch(url, {
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...(csrf ? {'X-CSRFToken': csrf} : {}) },
+      ...opts,
+    });
+
+    const updateMatCount = () => {
+      const count = matList.querySelectorAll('.mat-item').length;
+      if (matCountBadge) {
+        matCountBadge.textContent = count;
+        matCountBadge.classList.toggle('d-none', count === 0);
+      }
+      matList.querySelector('.material-empty-state')?.classList.toggle('d-none', count > 0);
+    };
+
+    const STATUS_LABELS = { falta: 'Falta', pedido: 'Pedido', almacen: 'Almacén', objeto: 'En obra' };
+
+    const renderMaterialItem = mat => {
+      const el = document.createElement('div');
+      el.className = `mat-item mat-s-${mat.status || 'falta'}`;
+      el.id = `mat-item-${mat.id}`;
+      el.dataset.matId = mat.id;
+      el.innerHTML = `
+        <span class="mat-name">${mat.name}</span>
+        <div class="mat-qty-group">
+          <input type="number" class="mat-qty-input" value="${mat.quantity}" min="0.01" step="any">
+          <span class="mat-unit">${mat.unit}</span>
+        </div>
+        <select class="mat-status-select" aria-label="Estado del material">
+          <option value="falta"   ${mat.status === 'falta'   ? 'selected' : ''}>Falta</option>
+          <option value="pedido"  ${mat.status === 'pedido'  ? 'selected' : ''}>Pedido</option>
+          <option value="almacen" ${mat.status === 'almacen' ? 'selected' : ''}>Almacén</option>
+          <option value="objeto"  ${mat.status === 'objeto'  ? 'selected' : ''}>En obra</option>
+        </select>
+        <button class="mat-del-btn" title="Eliminar">🗑</button>
+      `;
+      return el;
+    };
+
+    const loadMaterials = async () => {
+      try {
+        const res = await matFetch(materialsUrl);
+        const data = await res.json();
+        matList.innerHTML = '<div class="compact-meta material-empty-state py-2">Sin materiales. Escribe en el campo de arriba para añadir.</div>';
+        (data.materials || []).forEach(mat => matList.appendChild(renderMaterialItem(mat)));
+        updateMatCount();
+      } catch (e) { /* silent */ }
+    };
+
+    const hideResults = () => matResults.classList.add('d-none');
+    const showAddPanel = mat => {
+      selectedMaterial = mat;
+      matAddLabel.textContent = mat ? `Añadir: ${mat.name}` : `Nuevo: "${matSearchInput.value.trim()}"`;
+      if (mat) matUnitSelect.value = mat.unit || 'uds';
+      matQtyInput.value = 1;
+      matAddPanel.classList.remove('d-none');
+      matQtyInput.focus();
+    };
+    const hideAddPanel = () => {
+      matAddPanel.classList.add('d-none');
+      selectedMaterial = null;
+      matSearchInput.value = '';
+    };
+
+    matSearchInput?.addEventListener('input', () => {
+      clearTimeout(matSearchTimer);
+      const q = matSearchInput.value.trim();
+      if (!q) { hideResults(); return; }
+      matSearchTimer = setTimeout(async () => {
+        const res = await matFetch(`{% url "workdocs_material_search" %}?q=${encodeURIComponent(q)}`);
+        const items = await res.json();
+        matResults.innerHTML = '';
+        items.forEach(mat => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'material-result';
+          btn.textContent = `${mat.name} (${mat.unit})`;
+          btn.addEventListener('click', () => { hideResults(); showAddPanel(mat); });
+          matResults.appendChild(btn);
+        });
+        const newBtn = document.createElement('button');
+        newBtn.type = 'button';
+        newBtn.className = 'material-result material-result-new';
+        newBtn.textContent = `+ Añadir "${q}" como nuevo material`;
+        newBtn.addEventListener('click', () => { hideResults(); showAddPanel(null); });
+        matResults.appendChild(newBtn);
+        matResults.classList.remove('d-none');
+      }, 220);
+    });
+    matSearchInput?.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { hideResults(); hideAddPanel(); }
+      if (e.key === 'Enter') { e.preventDefault(); if (matSearchInput.value.trim()) showAddPanel(null); }
+    });
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#material-search-input') && !e.target.closest('#material-results')) hideResults();
+    });
+
+    matSaveBtn?.addEventListener('click', async () => {
+      const name = selectedMaterial ? selectedMaterial.name : matSearchInput.value.trim();
+      if (!name) return;
+      const res = await matFetch(materialsUrl, {
+        method: 'POST',
+        body: JSON.stringify({
+          material_id: selectedMaterial?.id || null,
+          name: selectedMaterial ? null : name,
+          unit: matUnitSelect.value,
+          quantity: parseFloat(matQtyInput.value) || 1,
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) return;
+      document.getElementById(`mat-item-${data.id}`)?.remove();
+      matList.insertBefore(renderMaterialItem(data), matList.firstChild);
+      updateMatCount();
+      hideAddPanel();
+    });
+    matCancelBtn?.addEventListener('click', hideAddPanel);
+    matQtyInput?.addEventListener('keydown', e => { if (e.key === 'Enter') matSaveBtn.click(); });
+
+    matList?.addEventListener('change', async e => {
+      const statusSelect = e.target.closest('.mat-status-select');
+      if (statusSelect) {
+        const item = statusSelect.closest('.mat-item');
+        const matId = item?.dataset.matId;
+        if (!matId) return;
+        const newStatus = statusSelect.value;
+        const res = await matFetch(`${materialUpdateBase}${matId}/`, { method: 'POST', body: JSON.stringify({ action: 'set_status', status: newStatus }) });
+        const data = await res.json();
+        if (data.ok) {
+          item.className = `mat-item mat-s-${data.status}`;
+        }
+        return;
+      }
+      const qtyInput = e.target.closest('.mat-qty-input');
+      if (qtyInput) {
+        const item = qtyInput.closest('.mat-item');
+        const matId = item?.dataset.matId;
+        if (!matId) return;
+        await matFetch(`${materialUpdateBase}${matId}/`, { method: 'POST', body: JSON.stringify({ action: 'update_qty', quantity: parseFloat(qtyInput.value) }) });
+      }
+    });
+
+    matList?.addEventListener('click', async e => {
+      const delBtn = e.target.closest('.mat-del-btn');
+      if (!delBtn) return;
+      const item = delBtn.closest('.mat-item');
+      const matId = item?.dataset.matId;
+      if (!matId) return;
+      const res = await matFetch(`${materialUpdateBase}${matId}/`, { method: 'POST', body: JSON.stringify({ action: 'delete' }) });
+      const data = await res.json();
+      if (data.ok) { item.remove(); updateMatCount(); }
+    });
+
+    loadMaterials();
+
+    /* ── Informe de jornada (technician only) ── */
+    {% if role == 'technician' %}
+    (() => {
+      const informeUrl = '{% url "workdocs_task_worker_report" task.pk %}';
+      let currentJornada = '{{ my_worker_report.jornada|default:"normal" }}';
+      const normalFields = document.getElementById('informe-normal-fields');
+      const saveBtn = document.getElementById('informe-save-btn');
+      const saveStatus = document.getElementById('informe-save-status');
+
+      document.querySelectorAll('.jornada-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentJornada = btn.dataset.jornada;
+          document.querySelectorAll('.jornada-btn').forEach(b => {
+            b.className = b.className.replace('btn-primary', 'btn-outline-primary');
+          });
+          btn.className = btn.className.replace('btn-outline-primary', 'btn-primary');
+          if (normalFields) normalFields.classList.toggle('d-none', currentJornada === 'intensiva');
+          saveInforme();
+        });
+      });
+
+      const saveInforme = async () => {
+        if (!saveBtn) return;
+        if (saveStatus) saveStatus.textContent = 'Guardando...';
+        const payload = {
+          jornada: currentJornada,
+          hora_comida: document.getElementById('informe-hora-comida')?.value || '',
+          gastos_comida: parseFloat(document.getElementById('informe-gastos')?.value || '0') || 0,
+          entrada_obra: document.getElementById('informe-entrada-obra')?.value || '',
+          salida_obra: document.getElementById('informe-salida-obra')?.value || '',
+          trabajos_realizados: document.getElementById('informe-trabajos')?.value || '',
+        };
+        const res = await fetch(informeUrl, {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...(csrf ? {'X-CSRFToken': csrf} : {}) },
+          body: JSON.stringify(payload),
+        });
+        const data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
+        if (saveStatus) saveStatus.textContent = (data?.ok) ? 'Guardado.' : 'Error al guardar.';
+      };
+
+      saveBtn?.addEventListener('click', saveInforme);
+      let informeTimer;
+      document.querySelectorAll('.informe-field').forEach(field => {
+        field.addEventListener('input', () => {
+          clearTimeout(informeTimer);
+          informeTimer = setTimeout(saveInforme, 800);
+        });
+      });
+
+      /* ── Voice recording for trabajos realizados ── */
+      const recStart = document.getElementById('informe-rec-start');
+      const recStop = document.getElementById('informe-rec-stop');
+      const recStatus = document.getElementById('informe-rec-status');
+      const trabajosTextarea = document.getElementById('informe-trabajos');
+      const transcribeUrl = '{% url "workdocs_transcribe_inline" %}';
+
+      if (recStart && navigator.mediaDevices) {
+        let recorder, chunks = [];
+        recStart.addEventListener('click', async () => {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            recorder = new MediaRecorder(stream);
+            chunks = [];
+            recorder.ondataavailable = e => chunks.push(e.data);
+            recorder.onstop = async () => {
+              stream.getTracks().forEach(t => t.stop());
+              const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+              if (recStatus) recStatus.textContent = 'Transcribiendo...';
+              const formData = new FormData();
+              formData.append('audio', blob, `informe-${Date.now()}.webm`);
+              formData.append('csrfmiddlewaretoken', csrf || '');
+              try {
+                const res = await fetch(transcribeUrl, { method: 'POST', body: formData, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const data = await res.json();
+                if (data.ok && data.text) {
+                  const current = trabajosTextarea?.value || '';
+                  if (trabajosTextarea) {
+                    trabajosTextarea.value = current ? current + '\n' + data.text : data.text;
+                    trabajosTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+                  }
+                  if (recStatus) recStatus.textContent = '';
+                } else {
+                  if (recStatus) recStatus.textContent = data.error || 'Error al transcribir.';
+                }
+              } catch (e) {
+                if (recStatus) recStatus.textContent = 'Error de conexión al transcribir.';
+              }
+            };
+            recorder.start();
+            recStart.classList.add('d-none');
+            recStop.classList.remove('d-none');
+            if (recStatus) recStatus.textContent = 'Grabando...';
+          } catch (e) {
+            if (recStatus) recStatus.textContent = 'No se pudo acceder al micrófono.';
+          }
+        });
+        recStop.addEventListener('click', () => {
+          if (recorder?.state === 'recording') recorder.stop();
+          recStop.classList.add('d-none');
+          recStart.classList.remove('d-none');
+        });
+      } else if (recStart) {
+        recStart.disabled = true;
+        recStart.title = 'Micrófono no disponible';
+      }
+    })();
+    {% endif %}
+
   });
-});
+})();
 </script>
 {% endblock %}

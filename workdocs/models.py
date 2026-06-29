@@ -241,3 +241,89 @@ class TaskEventRead(models.Model):
 
     def __str__(self):
         return f'{self.user} leyó {self.event_id}'
+
+
+class Material(models.Model):
+    UNIT_CHOICES = [
+        ('uds', 'uds'),
+        ('m', 'm'),
+        ('m²', 'm²'),
+        ('kg', 'kg'),
+        ('l', 'l'),
+        ('rollos', 'rollos'),
+        ('cajas', 'cajas'),
+        ('otros', 'otros'),
+    ]
+
+    name = models.CharField(max_length=200, unique=True)
+    unit = models.CharField(max_length=20, choices=UNIT_CHOICES, default='uds')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Material'
+        verbose_name_plural = 'Materiales'
+
+    def __str__(self):
+        return f'{self.name} ({self.unit})'
+
+
+class TaskMaterial(models.Model):
+    STATUS_FALTA = 'falta'
+    STATUS_PEDIDO = 'pedido'
+    STATUS_ALMACEN = 'almacen'
+    STATUS_OBJETO = 'objeto'
+    STATUS_CHOICES = [
+        ('falta', 'Falta'),
+        ('pedido', 'Pedido'),
+        ('almacen', 'En almacén'),
+        ('objeto', 'En obra'),
+    ]
+
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='materials')
+    material = models.ForeignKey(Material, on_delete=models.PROTECT, related_name='task_uses')
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='falta')
+    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='added_task_materials')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['material__name']
+        unique_together = ('task', 'material')
+        verbose_name = 'Material de tarea'
+        verbose_name_plural = 'Materiales de tarea'
+
+    def __str__(self):
+        return f'{self.material.name} × {self.quantity} en {self.task}'
+
+
+class TaskWorkerReport(models.Model):
+    JORNADA_NORMAL = 'normal'
+    JORNADA_INTENSIVA = 'intensiva'
+    JORNADA_CHOICES = [
+        ('normal', 'Normal (1h pausa comida)'),
+        ('intensiva', 'Intensiva (sin pausa)'),
+    ]
+
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='worker_reports')
+    worker = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='task_reports')
+    date = models.DateField(auto_now_add=True)
+    jornada = models.CharField(max_length=20, choices=JORNADA_CHOICES, default='normal')
+    gastos_comida = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    hora_comida = models.TimeField(blank=True, null=True)
+    entrada_obra = models.TimeField(blank=True, null=True)
+    salida_obra = models.TimeField(blank=True, null=True)
+    trabajos_realizados = models.TextField(blank=True)
+    is_finished = models.BooleanField(default=False)
+    finished_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('task', 'worker', 'date')
+        verbose_name = 'Informe de jornada'
+        verbose_name_plural = 'Informes de jornada'
+
+    def __str__(self):
+        return f'Informe {self.worker} / {self.task} ({self.date})'

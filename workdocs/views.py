@@ -1,3 +1,6 @@
+import json
+import os
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -14,7 +17,7 @@ from partes.forms import VehiculoForm
 from partes.models import Vehiculo
 
 from .forms import CommentForm, ProfileForm, TaskFileForm, TaskForm, UserCreateForm, UserEditForm, VoiceReportForm
-from .models import Task, TaskEvent, TaskEventRead, TaskFile, TaskVoiceReport, UserProfile
+from .models import Material, Task, TaskEvent, TaskEventRead, TaskFile, TaskMaterial, TaskVoiceReport, TaskWorkerReport, UserProfile
 from .utils import detect_file_type, get_user_role, is_admin, is_manager, is_technician
 
 User = get_user_model()
@@ -562,6 +565,17 @@ def task_detail(request, pk):
         [TaskEventRead(event_id=event_id, user=request.user) for event_id in unread_event_ids],
         ignore_conflicts=True,
     )
+    my_worker_report = None
+    auto_entrada_obra = ''
+    auto_salida_obra = ''
+    if role == UserProfile.ROLE_TECHNICIAN:
+        my_worker_report = TaskWorkerReport.objects.filter(
+            task=task, worker=request.user, date=timezone.localdate()
+        ).first()
+        if task.arrived_at:
+            auto_entrada_obra = timezone.localtime(task.arrived_at).strftime('%H:%M')
+        if task.finished_at:
+            auto_salida_obra = timezone.localtime(task.finished_at).strftime('%H:%M')
     return render(request, 'workdocs/task_detail.html', {
         'task': task,
         'map_coords': f'{task.latitude},{task.longitude}' if task.latitude and task.longitude else '',
@@ -579,6 +593,9 @@ def task_detail(request, pk):
         'chat_items': chat_items,
         'can_manage_users': _can_manage_users(request.user),
         'description_voice_reports': task.voice_reports.filter(report_type=TaskVoiceReport.TYPE_DESCRIPTION).select_related('technician'),
+        'my_worker_report': my_worker_report,
+        'auto_entrada_obra': auto_entrada_obra,
+        'auto_salida_obra': auto_salida_obra,
     })
 
 
@@ -663,8 +680,21 @@ def technician_status(request, pk, action):
         task.status = Task.STATUS_PENDIENTE_REVISION
         task.finished_at = task.finished_at or now
     elif action == 'finished':
-        task.status = Task.STATUS_FINALIZADA
+        task.status = Task.STATUS_PENDIENTE_REVISION
         task.finished_at = task.finished_at or now
+        report, _ = TaskWorkerReport.objects.get_or_create(
+            task=task,
+            worker=request.user,
+            date=timezone.localdate(),
+        )
+        if not report.is_finished:
+            report.is_finished = True
+            report.finished_at = now
+            report.save(update_fields=['is_finished', 'finished_at', 'updated_at'])
+        import logging
+        logging.getLogger(__name__).info(
+            '[STUB] PDF report would be sent for task=%s worker=%s', task.pk, request.user.username
+        )
     else:
         raise PermissionDenied
     task.save(update_fields=['status', 'started_at', 'arrived_at', 'finished_at', 'updated_at'])
@@ -807,5 +837,167 @@ def vehicles(request, pk=None):
         'vehicles': vehicles_qs,
         'editing': vehicle,
         'state_filter': state,
+        'role': get_user_role(request.user),
+    })
+
+
+@require_GET
+@login_required(login_url='/panel/login/')
+def material_search(request):
+    q = (request.GET.get('q') or '').strip()
+    if len(q) < 1:
+        return JsonResponse([], safe=False)
+    qs = Material.objects.filter(name__icontains=q).order_by('name')[:12]
+    return JsonResponse([{'id': m.id, 'name': m.name, 'unit': m.unit} for m in qs], safe=False)
+
+
+@login_required(login_url='/panel/login/')
+def task_materials(request, pk):
+    task = _get_visible_task(request.user, pk)
+    if request.method == 'GET':
+        items = task.materials.select_related('material')
+        return JsonResponse({'materials': [
+            {'id': tm.id, 'material_id': tm.material_id, 'name': tm.material.name,
+             'unit': tm.material.unit, 'quantity': str(tm.quantity), 'status': tm.status}
+            for tm in items
+        ]})
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'error': 'JSON inválido'}, status=400)
+        material_id = data.get('material_id')
+        material_name = (data.get('name') or '').strip()
+        unit = data.get('unit') or 'uds'
+        try:
+            quantity = max(0.01, float(data.get('quantity') or 1))
+        except (TypeError, ValueError):
+            quantity = 1
+        if material_id:
+            material = get_object_or_404(Material, pk=material_id)
+        elif material_name:
+            material = Material.objects.filter(name__iexact=material_name).first()
+            if not material:
+                material = Material.objects.create(name=material_name, unit=unit)
+        else:
+            return JsonResponse({'error': 'Nombre requerido'}, status=400)
+        tm, created = TaskMaterial.objects.get_or_create(
+            task=task, material=material,
+            defaults={'quantity': quantity, 'added_by': request.user},
+        )
+        if not created:
+            tm.quantity = quantity
+            tm.save(update_fields=['quantity'])
+        return JsonResponse({'ok': True, 'id': tm.id, 'material_id': material.id,
+                             'name': material.name, 'unit': material.unit,
+                             'quantity': str(tm.quantity), 'status': tm.status})
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+
+@login_required(login_url='/panel/login/')
+def task_material_update(request, pk, mat_pk):
+    task = _get_visible_task(request.user, pk)
+    tm = get_object_or_404(TaskMaterial, pk=mat_pk, task=task)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    action = data.get('action')
+    if action == 'set_status':
+        new_status = data.get('status', '')
+        valid = [c[0] for c in TaskMaterial.STATUS_CHOICES]
+        if new_status not in valid:
+            return JsonResponse({'error': 'Estado inválido'}, status=400)
+        tm.status = new_status
+        tm.save(update_fields=['status'])
+        return JsonResponse({'ok': True, 'status': tm.status})
+    if action == 'update_qty':
+        try:
+            tm.quantity = max(0.01, float(data.get('quantity') or tm.quantity))
+        except (TypeError, ValueError):
+            pass
+        tm.save(update_fields=['quantity'])
+        return JsonResponse({'ok': True, 'quantity': str(tm.quantity)})
+    if action == 'delete':
+        tm.delete()
+        return JsonResponse({'ok': True})
+    return JsonResponse({'error': 'Acción desconocida'}, status=400)
+
+
+@login_required(login_url='/panel/login/')
+def task_worker_report(request, pk):
+    task = _get_visible_task(request.user, pk)
+    if not is_technician(request.user):
+        raise PermissionDenied
+    today = timezone.localdate()
+    report, _ = TaskWorkerReport.objects.get_or_create(
+        task=task, worker=request.user, date=today,
+    )
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'error': 'JSON inválido'}, status=400)
+        report.jornada = data.get('jornada', report.jornada)
+        for time_field in ('hora_comida', 'entrada_obra', 'salida_obra'):
+            val = data.get(time_field) or ''
+            setattr(report, time_field, val if val else None)
+        report.gastos_comida = data.get('gastos_comida') or 0
+        report.trabajos_realizados = data.get('trabajos_realizados', report.trabajos_realizados)
+        report.save()
+        return JsonResponse({'ok': True, 'jornada': report.jornada, 'is_finished': report.is_finished})
+    return JsonResponse({
+        'ok': True,
+        'jornada': report.jornada,
+        'gastos_comida': str(report.gastos_comida),
+        'hora_comida': report.hora_comida.strftime('%H:%M') if report.hora_comida else '',
+        'entrada_obra': report.entrada_obra.strftime('%H:%M') if report.entrada_obra else '',
+        'salida_obra': report.salida_obra.strftime('%H:%M') if report.salida_obra else '',
+        'trabajos_realizados': report.trabajos_realizados,
+        'is_finished': report.is_finished,
+    })
+
+
+@login_required(login_url='/panel/login/')
+@require_POST
+def transcribe_audio_inline(request):
+    if not is_technician(request.user):
+        raise PermissionDenied
+    audio_file = request.FILES.get('audio')
+    if not audio_file:
+        return JsonResponse({'error': 'No se recibió audio.'}, status=400)
+    stt_token = os.getenv('JARVIS_STT_TOKEN', '')
+    stt_port = os.getenv('STT_PORT', '8091')
+    stt_url = f'http://127.0.0.1:{stt_port}/api/stt/transcribe'
+    if not stt_token:
+        return JsonResponse({'error': 'STT no configurado.'}, status=503)
+    try:
+        import httpx
+        with httpx.Client(timeout=60) as client:
+            response = client.post(
+                stt_url,
+                files={'file': (audio_file.name, audio_file.read(), audio_file.content_type or 'audio/webm')},
+                headers={'X-JARVIS-TOKEN': stt_token},
+            )
+        if response.status_code != 200:
+            return JsonResponse({'error': f'STT error {response.status_code}'}, status=502)
+        data = response.json()
+        return JsonResponse({'ok': True, 'text': data.get('text', '')})
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)[:200]}, status=502)
+
+
+@login_required(login_url='/panel/login/')
+def task_pdf(request, pk):
+    task = _get_visible_task(request.user, pk)
+    materials = task.materials.select_related('material').order_by('material__name')
+    worker_reports = task.worker_reports.select_related('worker').order_by('worker__first_name')
+    return render(request, 'workdocs/task_pdf.html', {
+        'task': task,
+        'materials': materials,
+        'worker_reports': worker_reports,
+        'technicians': task.assigned_technicians,
         'role': get_user_role(request.user),
     })

@@ -3,40 +3,129 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
   <div>
     <h1 class="h3 mb-1">Panel de trabajo</h1>
-    <div class="compact-meta">Buenos días. Revisa tus tareas asignadas.</div>
+    {% if role == 'technician' %}
+    <div class="compact-meta">Hola, {{ request.user.get_full_name|default:request.user.username }}. Tus tareas activas:</div>
+    {% else %}
+    <div class="compact-meta">Gestión de tareas</div>
+    {% endif %}
   </div>
   {% if role == 'admin' or role == 'manager' %}
-  <a class="btn btn-primary" href="{% url 'workdocs_task_create' %}">Crear tarea</a>
+  <div class="d-flex gap-2 flex-wrap">
+    <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#continueTaskModal">Continuar tarea</button>
+    <a class="btn btn-primary" href="{% url 'workdocs_task_create' %}">+ Nueva tarea</a>
+  </div>
   {% endif %}
 </div>
 
-<div class="row g-2 mb-3">
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=pending" data-dashboard-status="pending"><div class="card-body"><div class="compact-meta">Tareas pendientes</div><div class="dashboard-stat-number">{{ pending_count }}</div><div class="dashboard-stat-period">Todo el periodo</div></div></a></div>
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=finished" data-dashboard-status="finished"><div class="card-body"><div class="compact-meta">Finalizadas</div><div class="dashboard-stat-number">{{ finished_count }}</div><div class="dashboard-stat-period">Todo el periodo</div></div></a></div>
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?documents=1" data-dashboard-documents="1"><div class="card-body"><div class="compact-meta">Documentos nuevos</div><div class="dashboard-stat-number">{{ new_documents_count }}</div><div class="dashboard-stat-period">Todo el periodo</div></div></a></div>
-  <div class="col-6 col-lg-3"><a class="card dashboard-stat-card h-100 text-decoration-none" href="{% url 'workdocs_dashboard' %}?status=active" data-dashboard-status="active"><div class="card-body"><div class="compact-meta">Activas</div><div class="dashboard-stat-number">{{ active_count }}</div><div class="dashboard-stat-period">Todo el periodo</div></div></a></div>
+{% if role == 'admin' or role == 'manager' %}
+<div class="modal fade" id="continueTaskModal" tabindex="-1" aria-labelledby="continueTaskModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="continueTaskModalLabel">Continuar tarea existente</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <input class="form-control mb-3" id="continue-search-input" placeholder="Buscar por título o dirección..." autocomplete="off">
+        <div id="continue-results" style="max-height:360px;overflow-y:auto;">
+          <div class="compact-meta py-2" id="continue-hint">Escribe para buscar entre las tareas cargadas...</div>
+          <div id="continue-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
+<script>
+(function() {
+  const allTasks = [
+    {% for task in tasks %}{ id: {{ task.pk }}, title: "{{ task.title|escapejs }}", address: "{{ task.address|default:''|escapejs }}", status: "{{ task.status }}", continueUrl: "{% url 'workdocs_task_continue' task.pk %}", detailUrl: "{% url 'workdocs_task_detail' task.pk %}" },{% endfor %}
+  ];
+  const STATUS_LABELS = { NUEVA:'Nueva', ASIGNADA:'Asignada', EN_CAMINO:'En camino', EN_OBJETO:'En objeto', EN_PROCESO:'En proceso', PENDIENTE_REVISION:'Revisión', FINALIZADA:'Finalizada', CANCELADA:'Cancelada' };
+  const modal = document.getElementById('continueTaskModal');
+  const searchInput = document.getElementById('continue-search-input');
+  const hint = document.getElementById('continue-hint');
+  const list = document.getElementById('continue-list');
+
+  const render = tasks => {
+    list.innerHTML = '';
+    tasks.slice(0, 20).forEach(t => {
+      const item = document.createElement('div');
+      item.className = 'd-flex align-items-center gap-3 p-3 mb-1 rounded continue-task-row';
+      item.innerHTML = `
+        <div class="flex-grow-1 min-w-0">
+          <div class="fw-semibold text-truncate">${t.title}</div>
+          ${t.address ? `<div class="compact-meta text-truncate">${t.address}</div>` : ''}
+          <div class="compact-meta">${STATUS_LABELS[t.status] || t.status}</div>
+        </div>
+        <div class="d-flex gap-2 flex-shrink-0">
+          <a href="${t.detailUrl}" class="btn btn-sm btn-outline-primary">Ver</a>
+          <form method="post" action="${t.continueUrl}" class="d-inline">
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            <button class="btn btn-sm btn-primary" type="submit">Continuar</button>
+          </form>
+        </div>
+      `;
+      list.appendChild(item);
+    });
+    if (!tasks.length) list.innerHTML = '<div class="compact-meta py-2">No hay tareas con ese texto.</div>';
+  };
+
+  modal?.addEventListener('shown.bs.modal', () => { searchInput.focus(); render(allTasks); });
+  modal?.addEventListener('hidden.bs.modal', () => { searchInput.value = ''; list.innerHTML = ''; hint.classList.remove('d-none'); });
+  searchInput?.addEventListener('input', () => {
+    const q = searchInput.value.trim().toLowerCase();
+    hint.classList.add('d-none');
+    render(!q ? allTasks : allTasks.filter(t => (t.title + ' ' + t.address).toLowerCase().includes(q)));
+  });
+})();
+</script>
+{% endif %}
+
+{% if role == 'admin' or role == 'manager' %}
+{# ── Admin: compact inline stats ── #}
+<div class="dashboard-stats-bar mb-3">
+  <a class="dash-stat-pill text-decoration-none" data-dashboard-status="active">
+    <span class="dash-stat-num">{{ active_count }}</span>
+    <span class="dash-stat-lbl">activas</span>
+  </a>
+  <span class="dash-stat-sep"></span>
+  <a class="dash-stat-pill text-decoration-none" data-dashboard-status="pending">
+    <span class="dash-stat-num">{{ pending_count }}</span>
+    <span class="dash-stat-lbl">pendientes</span>
+  </a>
+  <span class="dash-stat-sep"></span>
+  <a class="dash-stat-pill text-decoration-none" data-dashboard-status="finished">
+    <span class="dash-stat-num" style="color:var(--wl-accent)">{{ finished_count }}</span>
+    <span class="dash-stat-lbl">finalizadas</span>
+  </a>
+  <span class="dash-stat-sep"></span>
+  <a class="dash-stat-pill text-decoration-none" data-dashboard-documents="1">
+    <span class="dash-stat-num" style="color:var(--wl-accent-2)">{{ new_documents_count }}</span>
+    <span class="dash-stat-lbl">documentos</span>
+  </a>
+</div>
+
+{# ── Admin: full filter panel ── #}
 <div class="card border-0 shadow-sm mb-3 dashboard-filter-panel">
   <div class="card-body">
     <div class="row g-2 align-items-end">
       <div class="col-lg-3"><input class="form-control form-control-sm" id="dashboard-search" placeholder="Buscar pedido..." value="{{ filters.q }}" autocomplete="off"></div>
-      <div class="col-lg-5">
+      <div class="col-lg-7">
         <div class="work-filter-tabs d-flex flex-wrap gap-1" aria-label="Estados">
           <button class="btn btn-sm btn-outline-primary {% if not filters.status %}active{% endif %}" type="button" data-status-filter="">Todos</button>
           <button class="btn btn-sm btn-outline-primary {% if filters.status == 'pending' %}active{% endif %}" type="button" data-status-filter="pending">Pendientes</button>
           <button class="btn btn-sm btn-outline-primary {% if filters.status == 'active' %}active{% endif %}" type="button" data-status-filter="active">Activas</button>
           <button class="btn btn-sm btn-outline-primary {% if filters.status == 'finished' %}active{% endif %}" type="button" data-status-filter="finished">Finalizadas</button>
+          <button class="btn btn-sm btn-outline-primary" type="button" id="dashboard-hoy-btn">Hoy</button>
         </div>
       </div>
-      {% if role == 'admin' or role == 'manager' %}
       <div class="col-lg-2">
         <select class="form-select form-select-sm" id="dashboard-technician">
           <option value="">Todos los técnicos</option>
           {% for technician in filter_technicians %}<option value="{{ technician.id }}" {% if filters.technician == technician.id|stringformat:'s' %}selected{% endif %}>{{ technician.get_full_name|default:technician.username }}</option>{% endfor %}
         </select>
       </div>
-      {% endif %}
       <div class="col-lg-2 d-flex align-items-center">
         <div class="form-check form-check-sm">
           <input class="form-check-input" type="checkbox" value="1" id="dashboard-documents-filter" {% if filters.documents %}checked{% endif %}>
@@ -52,10 +141,40 @@
   </div>
 </div>
 
+{% else %}
+{# ── Worker: compact summary + simple toggle ── #}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+  <div class="worker-summary-bar">
+    <div class="text-center px-2">
+      <div class="worker-stat-num">{{ active_count }}</div>
+      <div class="worker-stat-label">activa{% if active_count != 1 %}s{% endif %}</div>
+    </div>
+    <div class="worker-stat-divider"></div>
+    <div class="text-center px-2">
+      <div class="worker-stat-num" style="color:var(--wl-muted)">{{ finished_count }}</div>
+      <div class="worker-stat-label">finalizada{% if finished_count != 1 %}s{% endif %}</div>
+    </div>
+    {% if pending_count != active_count %}
+    <div class="worker-stat-divider"></div>
+    <div class="text-center px-2">
+      <div class="worker-stat-num" style="color:#ffc107">{{ pending_count }}</div>
+      <div class="worker-stat-label">pendiente{% if pending_count != 1 %}s{% endif %}</div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="worker-filter-bar">
+    <button class="worker-toggle active" type="button" data-status-filter="pending">Activas</button>
+    <button class="worker-toggle" type="button" data-status-filter="finished">Finalizadas</button>
+  </div>
+</div>
+{% endif %}
+
 <div class="card mb-4">
+  {% if role == 'admin' or role == 'manager' %}
   <div class="card-header d-flex justify-content-between align-items-center">
     <span class="fw-semibold">Tareas</span>
   </div>
+  {% endif %}
   <div class="card-body">
   <div class="row g-3 task-grid" id="dashboard-task-grid">
     {% for task in tasks %}
@@ -66,23 +185,26 @@
       data-is-finished="{% if task.status == 'FINALIZADA' %}1{% else %}0{% endif %}"
       data-has-documents="{% if task.file_count %}1{% else %}0{% endif %}"
       data-created-date="{{ task.created_at|date:'Y-m-d' }}"
+      data-updated-date="{{ task.updated_at|date:'Y-m-d' }}"
       data-technicians="{% for technician in task.assigned_technicians %}{{ technician.id }}{% if not forloop.last %},{% endif %}{% endfor %}">
-    <div class="task-card task-active clickable-task-card h-100 {% if task.status == 'NUEVA' %}task-new-pulse{% endif %}" data-href="{% url 'workdocs_task_detail' task.pk %}" role="link" tabindex="0">
-      <div class="d-flex justify-content-between gap-2">
-        <div>
+    <div class="task-card task-active clickable-task-card h-100 {% if task.status == 'NUEVA' %}task-new-pulse{% endif %}" data-href="{% url 'workdocs_task_detail' task.pk %}" data-task-status="{{ task.status }}" role="link" tabindex="0">
+      <div class="d-flex justify-content-between gap-2 align-items-start">
+        <div class="flex-grow-1 min-w-0">
           <a class="text-decoration-none task-title-link" href="{% url 'workdocs_task_detail' task.pk %}">
             <div class="fw-semibold task-title">{{ task.title }}</div>
             <div class="compact-meta">{{ task.address|default:'Sin dirección' }}</div>
           </a>
-          <div class="compact-meta">Técnicos: {% for technician in task.assigned_technicians %}{{ technician.get_full_name|default:technician.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</div>
+          <div class="compact-meta mt-1">{% for technician in task.assigned_technicians %}{{ technician.get_full_name|default:technician.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</div>
         </div>
-        <div class="text-end">
-          {% include 'workdocs/partials_status.html' with task=task %}
+        <div class="text-end flex-shrink-0 d-flex flex-column align-items-end gap-1">
+          <div class="task-status-block task-status-{{ task.status }}">{{ task.get_status_display }}</div>
+          {% if task.unread_count %}
+          <span class="unread-dot">{{ task.unread_count }}</span>
+          {% elif task.comment_count or task.voice_count or task.file_count %}
           {% with message_count=task.comment_count|add:task.voice_count|add:task.file_count %}
-          {% if message_count %}<div><span class="badge text-bg-secondary mt-2">{{ message_count }} mensaje{% if message_count != 1 %}s{% endif %}</span></div>{% endif %}
+          <span class="badge text-bg-secondary">{{ message_count }}</span>
           {% endwith %}
-          {% if task.unread_count %}<div><span class="badge text-bg-success mt-2">{{ task.unread_count }} nuevo{% if task.unread_count != 1 %}s{% endif %}</span></div>{% endif %}
-          {% if task.status == 'NUEVA' %}<div><span class="badge text-bg-warning mt-2">Nueva</span></div>{% endif %}
+          {% endif %}
         </div>
       </div>
       {% if role == 'admin' or role == 'manager' %}
@@ -140,6 +262,7 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  const isWorker = {% if role == 'technician' %}true{% else %}false{% endif %};
   const searchInput = document.getElementById('dashboard-search');
   const technicianSelect = document.getElementById('dashboard-technician');
   const documentsInput = document.getElementById('dashboard-documents-filter');
@@ -150,13 +273,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const emptyState = document.getElementById('dashboard-live-empty');
   const taskItems = [...document.querySelectorAll('.dashboard-task-item')];
   const statusButtons = [...document.querySelectorAll('[data-status-filter]')];
+  const grid = document.getElementById('dashboard-task-grid');
 
   const currentStatus = () => document.querySelector('[data-status-filter].active')?.dataset.statusFilter || '';
   const setStatus = status => {
     statusButtons.forEach(button => button.classList.toggle('active', button.dataset.statusFilter === status));
   };
   const normalize = value => (value || '').trim().toLowerCase();
+
   const updateUrl = () => {
+    if (isWorker) return;
     const params = new URLSearchParams();
     if (searchInput?.value.trim()) params.set('q', searchInput.value.trim());
     if (currentStatus()) params.set('status', currentStatus());
@@ -167,6 +293,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const query = params.toString();
     window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
   };
+
+  const updateDayGroups = () => {
+    document.querySelectorAll('.task-day-sep').forEach(el => el.remove());
+    const today = new Date().toISOString().slice(0, 10);
+    const d = new Date(); d.setDate(d.getDate() - 6);
+    const weekStart = d.toISOString().slice(0, 10);
+    const labels = { hoy: 'Hoy', semana: 'Esta semana', anteriores: 'Anteriores' };
+    const getGroup = date => {
+      if (!date) return 'anteriores';
+      if (date >= today) return 'hoy';
+      if (date >= weekStart) return 'semana';
+      return 'anteriores';
+    };
+    const visible = taskItems.filter(item => !item.classList.contains('d-none'));
+    let lastGroup = null;
+    visible.forEach((item, idx) => {
+      const date = item.dataset.updatedDate || item.dataset.createdDate || '';
+      const group = getGroup(date);
+      if (group !== lastGroup) {
+        const sep = document.createElement('div');
+        sep.className = 'col-12 task-day-sep' + (idx === 0 ? ' first-sep' : '');
+        sep.innerHTML = `<div class="task-day-label">${labels[group]}</div>`;
+        grid.insertBefore(sep, item);
+        lastGroup = group;
+      }
+    });
+  };
+
   const applyFilters = () => {
     const q = normalize(searchInput?.value);
     const status = currentStatus();
@@ -204,6 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     emptyState?.classList.toggle('d-none', visible !== 0 || taskItems.length === 0);
     updateUrl();
+    if (isWorker) updateDayGroups();
   };
 
   statusButtons.forEach(button => {
@@ -239,6 +394,20 @@ document.addEventListener('DOMContentLoaded', () => {
     setStatus('');
     applyFilters();
   });
+
+  document.getElementById('dashboard-hoy-btn')?.addEventListener('click', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (dateFromInput) dateFromInput.value = today;
+    if (dateToInput) dateToInput.value = today;
+    setStatus('');
+    applyFilters();
+  });
+
+  // Workers start with active tasks visible, admins respect URL params
+  if (isWorker) {
+    const urlStatus = new URLSearchParams(window.location.search).get('status') || '';
+    setStatus(urlStatus || 'pending');
+  }
   applyFilters();
 
   document.querySelectorAll('.clickable-task-card[data-href]').forEach(card => {
