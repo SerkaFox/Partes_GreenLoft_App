@@ -319,6 +319,8 @@ def _chat_item_for_event(event, viewer):
     if event.parent_event_id:
         _ensure_profile(event.parent_event.user)
     is_own = event.user_id == viewer.id
+    viewer_role = get_user_role(viewer)
+    can_delete = is_own or viewer_role in {UserProfile.ROLE_ADMIN, UserProfile.ROLE_MANAGER}
     read_by_others = is_own and any(read.user_id != viewer.id for read in event.reads.all())
     event.user_url = _task_user_url(event.user, viewer)
     event.is_unread = False
@@ -330,6 +332,7 @@ def _chat_item_for_event(event, viewer):
         'user_url': event.user_url,
         'event': event,
         'is_own': is_own,
+        'can_delete': can_delete,
         'read_by_others': read_by_others,
     }
 
@@ -613,6 +616,20 @@ def task_comment_reaction(request, pk, event_pk):
     event.save(update_fields=['reactions'])
     if _wants_json(request):
         return JsonResponse({'ok': True, 'reactions': reactions})
+    return redirect('workdocs_task_detail', pk=task.pk)
+
+
+@login_required(login_url='/panel/login/')
+@require_POST
+def task_comment_delete(request, pk, event_pk):
+    task = _get_visible_task(request.user, pk)
+    event = get_object_or_404(task.events.filter(event_type=TaskEvent.EVENT_COMMENT), pk=event_pk)
+    role = get_user_role(request.user)
+    if event.user_id != request.user.id and role not in {UserProfile.ROLE_ADMIN, UserProfile.ROLE_MANAGER}:
+        raise PermissionDenied
+    event.delete()
+    if _wants_json(request):
+        return JsonResponse({'ok': True, 'event_id': event_pk})
     return redirect('workdocs_task_detail', pk=task.pk)
 
 

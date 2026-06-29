@@ -1091,6 +1091,25 @@ h1, h2, h3, h4, h5 { color: var(--wl-text); }
   flex-shrink: 0;
 }
 
+/* ── Chat comment delete ── */
+.comment-delete-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255, 100, 100, .22);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--wl-danger);
+  font-size: .82rem;
+  cursor: pointer;
+  transition: background .14s, border-color .14s;
+}
+.comment-delete-btn:hover {
+  background: rgba(255, 100, 100, .16);
+  border-color: var(--wl-danger);
+}
+
 /* ── Informe voice row ── */
 .informe-voice-row {
   display: grid;

@@ -46,6 +46,12 @@
       <button class="emoji-button" name="emoji" value="👀" type="submit">👀</button>
       <button class="emoji-button" name="emoji" value="🙏" type="submit">🙏</button>
     </form>
+    {% if item.can_delete %}
+    <form class="comment-delete-form ms-auto" method="post" action="{% url 'workdocs_task_comment_delete' task.pk item.event.pk %}">
+      {% csrf_token %}
+      <button class="comment-delete-btn" type="submit" title="Eliminar mensaje">🗑</button>
+    </form>
+    {% endif %}
   </div>
   {% elif item.kind == 'voice' %}
   <div class="chat-voice-message mt-2">

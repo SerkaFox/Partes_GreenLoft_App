@@ -675,6 +675,23 @@
     });
     document.getElementById('comment-reply-clear')?.addEventListener('click', clearReply);
     chatItems?.addEventListener('submit', async event => {
+      const delForm = event.target.closest('.comment-delete-form');
+      if (delForm) {
+        event.preventDefault();
+        const response = await fetch(delForm.action, {
+          method: 'POST', body: new FormData(delForm), credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', ...(csrf ? {'X-CSRFToken': csrf} : {}) },
+        });
+        const data = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
+        if (response.ok && data?.ok) {
+          delForm.closest('.task-comment')?.remove();
+          const remaining = chatItems.querySelectorAll('.task-comment').length;
+          const badge = document.getElementById('chat-count-badge');
+          if (badge) { badge.textContent = String(remaining); badge.classList.toggle('d-none', remaining === 0); }
+          if (!remaining) chatItems.insertAdjacentHTML('beforeend', '<div class="compact-meta chat-empty-state">No hay mensajes todavía.</div>');
+        }
+        return;
+      }
       const form = event.target.closest('.comment-reactions');
       if (!form) return;
       event.preventDefault();
