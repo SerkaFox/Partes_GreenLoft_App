@@ -697,13 +697,23 @@ def technician_status(request, pk, action):
         task.status = Task.STATUS_PENDIENTE_REVISION
         task.finished_at = task.finished_at or now
     elif action == 'finished':
+        report = TaskWorkerReport.objects.filter(
+            task=task, worker=request.user, date=timezone.localdate()
+        ).first()
+        missing = []
+        if not report or not report.entrada_obra:
+            missing.append('hora de llegada al objeto')
+        if not report or not report.salida_obra:
+            missing.append('hora de salida del objeto')
+        if not report or not report.trabajos_realizados.strip():
+            missing.append('descripción de trabajos realizados')
+        if report and report.jornada == TaskWorkerReport.JORNADA_NORMAL and not report.hora_comida:
+            missing.append('hora de comida')
+        if missing:
+            messages.error(request, 'Completa el informe antes de finalizar: ' + ', '.join(missing) + '.')
+            return redirect('workdocs_task_detail', pk=task.pk)
         task.status = Task.STATUS_PENDIENTE_REVISION
         task.finished_at = task.finished_at or now
-        report, _ = TaskWorkerReport.objects.get_or_create(
-            task=task,
-            worker=request.user,
-            date=timezone.localdate(),
-        )
         if not report.is_finished:
             report.is_finished = True
             report.finished_at = now

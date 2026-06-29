@@ -28,7 +28,7 @@
   {% if my_worker_report.is_finished %}
   <button class="btn btn-success status-btn-active" disabled>Trabajo finalizado ✓</button>
   {% else %}
-  <button class="btn {% if task.status == 'FINALIZADA' %}btn-success status-btn-active{% else %}btn-outline-success{% endif %}" type="button" data-bs-toggle="modal" data-bs-target="#finishConfirmModal">Trabajo finalizado</button>
+  <button class="btn {% if task.status == 'FINALIZADA' %}btn-success status-btn-active{% else %}btn-outline-success{% endif %}" type="button" id="finish-work-btn">Trabajo finalizado</button>
   {% endif %}
 </div>
 
@@ -367,10 +367,19 @@
           <div class="compact-meta mt-1" id="informe-rec-status"></div>
         </div>
 
+        <div class="alert alert-danger py-2 compact-meta d-none" id="informe-validation-msg"></div>
+
         <div class="d-flex gap-2 align-items-center">
           <button class="btn btn-primary btn-sm" type="button" id="informe-save-btn">Guardar informe</button>
           <span class="compact-meta" id="informe-save-status"></span>
         </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-3" id="informe-materials-card">
+      <div class="card-header fw-semibold compact-meta">Materiales utilizados en esta tarea</div>
+      <div class="card-body" id="informe-mat-list">
+        <div class="compact-meta">Cargando materiales...</div>
       </div>
     </div>
   </div>
@@ -892,6 +901,37 @@
       const normalFields = document.getElementById('informe-normal-fields');
       const saveBtn = document.getElementById('informe-save-btn');
       const saveStatus = document.getElementById('informe-save-status');
+      const validationMsg = document.getElementById('informe-validation-msg');
+
+      /* ── Validate informe fields and open finish modal ── */
+      const finishBtn = document.getElementById('finish-work-btn');
+      const finishModal = document.getElementById('finishConfirmModal');
+      finishBtn?.addEventListener('click', () => {
+        const entradaObra = document.getElementById('informe-entrada-obra')?.value || '';
+        const salidaObra = document.getElementById('informe-salida-obra')?.value || '';
+        const trabajos = document.getElementById('informe-trabajos')?.value.trim() || '';
+        const horaComida = document.getElementById('informe-hora-comida')?.value || '';
+        const errors = [];
+        if (!entradaObra) errors.push('Hora de llegada al objeto');
+        if (!salidaObra) errors.push('Hora de salida del objeto');
+        if (!trabajos) errors.push('Descripción de trabajos realizados');
+        if (currentJornada === 'normal' && !horaComida) errors.push('Hora de comida');
+        if (errors.length) {
+          /* Switch to Informe tab */
+          document.querySelector('[data-bs-target="#tab-informe"]')?.click();
+          if (validationMsg) {
+            validationMsg.textContent = 'Completa el informe antes de finalizar: ' + errors.join(', ') + '.';
+            validationMsg.classList.remove('d-none');
+            validationMsg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+          return;
+        }
+        if (validationMsg) validationMsg.classList.add('d-none');
+        /* Save first, then open modal */
+        saveInforme().then(() => {
+          if (finishModal) bootstrap.Modal.getOrCreateInstance(finishModal).show();
+        });
+      });
 
       document.querySelectorAll('.jornada-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -906,7 +946,6 @@
       });
 
       const saveInforme = async () => {
-        if (!saveBtn) return;
         if (saveStatus) saveStatus.textContent = 'Guardando...';
         const payload = {
           jornada: currentJornada,
@@ -923,7 +962,34 @@
         });
         const data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
         if (saveStatus) saveStatus.textContent = (data?.ok) ? 'Guardado.' : 'Error al guardar.';
+        return data;
       };
+
+      /* ── Load materials in Informe tab ── */
+      const informeMatList = document.getElementById('informe-mat-list');
+      const STATUS_LABELS_MAT = { falta: 'Falta', pedido: 'Pedido', almacen: 'Almacén', objeto: 'En obra' };
+      const STATUS_COLORS_MAT = { falta: 'var(--wl-danger)', pedido: '#ffc107', almacen: 'var(--wl-accent-2)', objeto: 'var(--wl-accent)' };
+      const loadInformeMaterials = async () => {
+        if (!informeMatList) return;
+        try {
+          const res = await matFetch('{% url "workdocs_task_materials" task.pk %}');
+          const data = await res.json();
+          const mats = data.materials || [];
+          if (!mats.length) {
+            informeMatList.innerHTML = '<div class="compact-meta">Sin materiales añadidos.</div>';
+            return;
+          }
+          informeMatList.innerHTML = mats.map(m => `
+            <div class="d-flex align-items-center gap-2 py-1 border-bottom border-opacity-10">
+              <span style="width:8px;height:8px;border-radius:50%;background:${STATUS_COLORS_MAT[m.status]||'#888'};flex-shrink:0;display:inline-block;"></span>
+              <span class="flex-grow-1">${m.name}</span>
+              <span class="compact-meta">${m.quantity} ${m.unit}</span>
+              <span class="compact-meta" style="color:${STATUS_COLORS_MAT[m.status]||'#888'}">${STATUS_LABELS_MAT[m.status]||m.status}</span>
+            </div>
+          `).join('');
+        } catch (e) { if (informeMatList) informeMatList.innerHTML = '<div class="compact-meta text-danger">Error al cargar materiales.</div>'; }
+      };
+      document.querySelector('[data-bs-target="#tab-informe"]')?.addEventListener('shown.bs.tab', loadInformeMaterials);
 
       saveBtn?.addEventListener('click', saveInforme);
       let informeTimer;
