@@ -815,9 +815,9 @@ h1, h2, h3, h4, h5 { color: var(--wl-text); }
 
 /* ── Task tab navigation ── */
 .task-tab-nav {
-  gap: 4px;
-  border-bottom: 1px solid var(--wl-border);
-  padding-bottom: 0;
+  gap: 6px;
+  border-bottom: none;
+  padding-bottom: 4px;
   scrollbar-width: none;
 }
 .task-tab-nav::-webkit-scrollbar { display: none; }
@@ -825,25 +825,36 @@ h1, h2, h3, h4, h5 { color: var(--wl-text); }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 16px;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
-  background: transparent;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .06);
   color: var(--wl-muted);
-  font-size: .88rem;
+  font-size: .9rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: color .14s, background .14s, border-color .14s;
+  transition: color .1s, background .1s, transform .08s, box-shadow .08s;
+  box-shadow:
+    0 4px 0 rgba(0, 0, 0, .32),
+    0 6px 18px rgba(0, 0, 0, .22);
 }
-.task-tab:hover { color: var(--wl-text); background: rgba(73,201,133,.08); border-color: var(--wl-border); }
-.task-tab.active {
+.task-tab:hover {
   color: var(--wl-text);
-  background: var(--wl-panel);
-  border-color: var(--wl-border);
-  border-bottom-color: var(--wl-panel);
-  margin-bottom: -1px;
+  background: rgba(73, 201, 133, .1);
+}
+.task-tab:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, .32),
+    0 3px 8px rgba(0, 0, 0, .15);
+}
+.task-tab.active {
+  color: #07130f;
+  background: var(--wl-accent);
+  box-shadow:
+    0 4px 0 #1b6038,
+    0 6px 18px rgba(73, 201, 133, .4);
 }
 
 /* ── Materials list ── */
