@@ -9,6 +9,7 @@
   .user-result:hover { background: rgba(73,201,133,.16); }
   .selected-user { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px solid var(--wl-border); border-radius: 8px; padding: 10px 12px; background: rgba(6,18,15,.82); }
   .hint-text { color: var(--wl-muted); font-size: .9rem; }
+  .remember-hint { color: var(--wl-muted); font-size: .8rem; margin-top: 4px; }
 </style>
 <div class="card work-login-card">
   <div class="card-body p-4">
@@ -27,6 +28,7 @@
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ next|default:'/trabajo/' }}">
       <input type="hidden" name="username" id="id_username">
+      <input type="hidden" name="login_count" id="id_login_count" value="0">
       <div class="mb-3 position-relative" id="user-search-wrap">
         <label class="form-label" for="search_user">Buscar usuario</label>
         <input class="form-control form-control-lg" id="search_user" name="search_user" type="text" placeholder="Escribe tu nombre..." autocomplete="off">
@@ -46,6 +48,7 @@
       </div>
       <div class="alert alert-danger d-none" id="login-client-error"></div>
       <button class="btn btn-primary btn-lg w-100" type="submit">Entrar</button>
+      <div class="remember-hint text-center mt-2" id="remember-session-hint"></div>
     </form>
   </div>
 </div>
@@ -57,6 +60,7 @@
   const tabs = [...document.querySelectorAll('[data-login-role]')];
   const search = document.getElementById('search_user');
   const username = document.getElementById('id_username');
+  const loginCountInput = document.getElementById('id_login_count');
   const results = document.getElementById('user-results');
   const selected = document.getElementById('selected-user');
   const selectedName = document.getElementById('selected-user-name');
@@ -64,8 +68,18 @@
   const remember = document.getElementById('remember-user');
   const password = document.getElementById('id_password');
   const error = document.getElementById('login-client-error');
+  const sessionHint = document.getElementById('remember-session-hint');
   let role = localStorage.getItem('lastLoginRole') || 'admin_manager';
   let timer = null;
+
+  // Read stored login count and show hint
+  const currentCount = parseInt(localStorage.getItem('loginCount') || '0');
+  loginCountInput.value = currentCount;
+  if (currentCount >= 1) {
+    sessionHint.textContent = 'La sesión se mantendrá activa 90 días en este dispositivo.';
+  } else {
+    sessionHint.textContent = 'Después de la 2.ª entrada la sesión se guardará automáticamente.';
+  }
 
   const memoryKeys = () => ({
     username: `lastLoginUsername:${role}`,
@@ -173,6 +187,10 @@
       showError('Introduce la contraseña.');
       return;
     }
+    // Increment counter BEFORE submit so server gets the current count
+    const newCount = currentCount + 1;
+    localStorage.setItem('loginCount', newCount);
+    loginCountInput.value = currentCount; // server needs the PRE-submit count
     if (remember.checked) {
       const keys = memoryKeys();
       localStorage.setItem('lastLoginRole', role);

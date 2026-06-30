@@ -73,7 +73,9 @@ def admin_or_manager_required(view_func):
 
 
 def index(request):
-    return render(request, 'partes/home.html')
+    if request.user.is_authenticated:
+        return redirect('/trabajo/')
+    return redirect('panel_login')
 
 
 @technician_redirect_if_panel
@@ -493,6 +495,14 @@ def panel_login(request):
         user = authenticate(request, username=form.cleaned_data['username'], password=form.cleaned_data['password'])
         if user and user.is_active:
             login(request, user)
+            try:
+                login_count = int(request.POST.get('login_count', 0))
+            except (ValueError, TypeError):
+                login_count = 0
+            if login_count >= 1:
+                request.session.set_expiry(90 * 24 * 60 * 60)  # 90 days after 2nd login
+            else:
+                request.session.set_expiry(7 * 24 * 60 * 60)   # 7 days on first login
             return redirect(_safe_login_redirect(request))
         messages.error(request, 'Usuario o contraseña incorrectos.')
     return render(request, 'partes/panel/login.html', {'form': form, 'next': request.GET.get('next', '')})

@@ -90,8 +90,11 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
 LOGIN_URL = '/panel/login/'
-LOGIN_REDIRECT_URL = '/panel/'
+LOGIN_REDIRECT_URL = '/trabajo/'
 LOGOUT_REDIRECT_URL = '/panel/login/'
+
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_COOKIE_AGE = 7 * 24 * 60 * 60  # default 7 days; extended to 90 on 2nd login
 
 EMAIL_HOST = os.getenv('EMAIL_HOST', '')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587') or 587)
