@@ -13,50 +13,9 @@
   <div>{% include 'workdocs/partials_status.html' with task=task %}</div>
 </div>
 
-{# ── Technician quick-action buttons ── #}
-{% if role == 'technician' %}
-<div class="d-flex flex-wrap gap-2 mobile-actions mb-3">
-  <form method="post" action="{% url 'workdocs_technician_status' task.pk 'arrived_work' %}">{% csrf_token %}
-    <button class="btn {% if task.status == 'EN_CAMINO' %}btn-primary status-btn-active{% else %}btn-outline-primary{% endif %}">He llegado al trabajo</button>
-  </form>
-  <form method="post" action="{% url 'workdocs_technician_status' task.pk 'arrived_object' %}">{% csrf_token %}
-    <button class="btn {% if task.status == 'EN_OBJETO' %}btn-primary status-btn-active{% else %}btn-outline-primary{% endif %}">He llegado al objeto</button>
-  </form>
-  <form method="post" action="{% url 'workdocs_technician_status' task.pk 'left_object' %}">{% csrf_token %}
-    <button class="btn {% if task.status == 'PENDIENTE_REVISION' and not my_worker_report.is_finished %}btn-primary status-btn-active{% else %}btn-outline-primary{% endif %}">Salí del objeto</button>
-  </form>
-  {% if my_worker_report.is_finished %}
-  <button class="btn btn-success status-btn-active" disabled>Trabajo finalizado ✓</button>
-  {% else %}
-  <button class="btn {% if task.status == 'FINALIZADA' %}btn-success status-btn-active{% else %}btn-outline-success{% endif %}" type="button" id="finish-work-btn">Trabajo finalizado</button>
-  {% endif %}
-</div>
-
-{# Confirm finish modal #}
-<div class="modal fade" id="finishConfirmModal" tabindex="-1" aria-labelledby="finishConfirmModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="finishConfirmModalLabel">Confirmar finalización</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
-        <p>¿Estás seguro de que quieres marcar el trabajo como finalizado para ti?</p>
-        <p class="compact-meta">Esto enviará un informe y cerrará tu acceso activo. Si hay un compañero en la tarea, él puede seguir trabajando.</p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <form method="post" action="{% url 'workdocs_technician_status' task.pk 'finished' %}">{% csrf_token %}
-          <button class="btn btn-success" type="submit">Sí, finalizar</button>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
 
 {# ── Tab navigation ── #}
-<ul class="nav task-tab-nav flex-nowrap overflow-auto mb-3 gap-1" id="taskTabNav" role="tablist">
+<ul class="nav task-tab-nav flex-wrap mb-3 gap-1" id="taskTabNav" role="tablist">
   <li class="nav-item" role="presentation">
     <button class="task-tab active" data-bs-toggle="tab" data-bs-target="#tab-info" role="tab" aria-selected="true">
       Información
@@ -121,6 +80,29 @@
         <p class="compact-meta mb-3">Sin descripción.</p>
         {% endif %}
 
+        {# ── Sequential status action button (technicians only) ── #}
+        {% if role == 'technician' %}
+        <div class="mb-3">
+          {% if my_worker_report.is_finished %}
+          <button class="btn btn-success btn-action-main w-100" disabled>✓ Trabajo finalizado</button>
+          {% elif task.status == 'EN_CAMINO' %}
+          <form method="post" action="{% url 'workdocs_technician_status' task.pk 'arrived_object' %}">{% csrf_token %}
+            <button class="btn btn-warning btn-action-main w-100" type="submit">He llegado al objeto</button>
+          </form>
+          {% elif task.status == 'EN_OBJETO' %}
+          <form method="post" action="{% url 'workdocs_technician_status' task.pk 'left_object' %}">{% csrf_token %}
+            <button class="btn btn-secondary btn-action-main w-100" type="submit">Salí del objeto</button>
+          </form>
+          {% elif task.status == 'PENDIENTE_REVISION' %}
+          <button class="btn btn-success btn-action-main w-100" type="button" id="finish-work-btn">Cerrar tarea del día</button>
+          {% else %}
+          <form method="post" action="{% url 'workdocs_technician_status' task.pk 'arrived_work' %}">{% csrf_token %}
+            <button class="btn btn-primary btn-action-main w-100" type="submit">He llegado al trabajo</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endif %}
+
         <div class="row g-2 compact-meta mb-3">
           {% if task.parent_task %}
           <div class="col-12">Continuación de: <a href="{% url 'workdocs_task_detail' task.parent_task.pk %}">#{{ task.parent_task.pk }} {{ task.parent_task.title }}</a></div>
@@ -128,50 +110,42 @@
           <div class="col-sm-6">Creada por:
             {% if created_by_url %}<a href="{{ created_by_url }}">{{ task.created_by.get_full_name|default:task.created_by.username }}</a>{% else %}{{ task.created_by.get_full_name|default:task.created_by.username }}{% endif %}
           </div>
-          <div class="col-sm-6">Técnicos:
-            {% for item in technicians_info %}{% if item.url %}<a href="{{ item.url }}">{{ item.user.get_full_name|default:item.user.username }}</a>{% else %}{{ item.user.get_full_name|default:item.user.username }}{% endif %}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}
+          <div class="col-12">
+            <div class="d-flex align-items-start flex-wrap gap-1">
+              <span class="flex-shrink-0 me-1">Técnicos:</span>
+              {% if role == 'technician' %}
+              <span id="tech-tags-inline" class="d-inline-flex flex-wrap align-items-center gap-1">
+                <span id="tech-tags-container">{% for item in technicians_info %}<span class="task-equipo-tag" data-user-id="{{ item.user.pk }}">{{ item.user.get_full_name|default:item.user.username }}<button class="task-equipo-tag-remove" type="button" data-user-id="{{ item.user.pk }}" title="Quitar">×</button></span>{% empty %}<span class="text-muted">Sin asignar</span>{% endfor %}</span>
+                <button class="task-tech-add-btn" type="button" id="equipo-tech-btn" title="Añadir compañero">+</button>
+              </span>
+              <div class="task-equipo-search d-none w-100 mt-1" id="equipo-tech-search">
+                <input type="text" class="form-control form-control-sm" id="equipo-tech-input" placeholder="Buscar compañero..." autocomplete="off">
+                <div class="task-equipo-results" id="equipo-tech-results"></div>
+                <button class="btn btn-sm btn-outline-secondary mt-1" type="button" id="equipo-tech-cancel">Cancelar</button>
+              </div>
+              {% else %}
+              {% for item in technicians_info %}{% if item.url %}<a href="{{ item.url }}">{{ item.user.get_full_name|default:item.user.username }}</a>{% else %}{{ item.user.get_full_name|default:item.user.username }}{% endif %}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}
+              {% endif %}
+            </div>
           </div>
-          <div class="col-sm-6">Vehículo:
-            {% if task.vehicle and vehicle_url %}<a id="task-info-vehicle" href="{{ vehicle_url }}">{{ task.vehicle }}</a>{% else %}<span id="task-info-vehicle">{{ task.vehicle|default:'Sin vehículo' }}</span>{% endif %}
+          <div class="col-sm-6">
+            <div>Vehículo:
+              {% if role == 'technician' %}
+              <span id="task-info-vehicle">{{ task.vehicle|default:'Sin vehículo' }}</span>
+              <button class="task-tech-add-btn ms-1" type="button" id="equipo-vehicle-btn" title="Cambiar vehículo">✎</button>
+              <div class="task-equipo-search d-none mt-1" id="equipo-vehicle-search">
+                <input type="text" class="form-control form-control-sm" id="equipo-vehicle-input" placeholder="Buscar matrícula..." autocomplete="off">
+                <div class="task-equipo-results" id="equipo-vehicle-results"></div>
+                <button class="btn btn-sm btn-outline-secondary mt-1" type="button" id="equipo-vehicle-cancel">Cancelar</button>
+              </div>
+              {% else %}
+              {% if task.vehicle and vehicle_url %}<a id="task-info-vehicle" href="{{ vehicle_url }}">{{ task.vehicle }}</a>{% else %}<span id="task-info-vehicle">{{ task.vehicle|default:'Sin vehículo' }}</span>{% endif %}
+              {% endif %}
+            </div>
           </div>
           <div class="col-sm-6">Creada: {{ task.created_at|date:'d/m/Y H:i' }}</div>
           <div class="col-sm-6">Actualizada: {{ task.updated_at|date:'d/m/Y H:i' }}</div>
         </div>
-
-        {% if role == 'technician' %}
-        {# ── Vehicle & partner quick-set for technicians ── #}
-        <div class="task-equipo-panel mb-3">
-          <div class="task-equipo-row">
-            <span class="task-equipo-label">Vehículo</span>
-            <span class="task-equipo-value" id="equipo-vehicle-display">{{ task.vehicle|default:'Sin vehículo' }}</span>
-            <button class="btn btn-sm btn-outline-primary task-equipo-edit-btn" type="button" id="equipo-vehicle-btn">Cambiar</button>
-          </div>
-          <div class="task-equipo-search d-none" id="equipo-vehicle-search">
-            <input type="text" class="form-control form-control-sm" id="equipo-vehicle-input" placeholder="Buscar matrícula o descripción..." autocomplete="off">
-            <div class="task-equipo-results" id="equipo-vehicle-results"></div>
-            <button class="btn btn-sm btn-outline-secondary mt-1" type="button" id="equipo-vehicle-cancel">Cancelar</button>
-          </div>
-
-          <div class="task-equipo-row mt-2">
-            <span class="task-equipo-label">Compañeros</span>
-            <span class="task-equipo-value" id="equipo-tech-list">{% for item in technicians_info %}{{ item.user.get_full_name|default:item.user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</span>
-            <button class="btn btn-sm btn-outline-primary task-equipo-edit-btn" type="button" id="equipo-tech-btn">Añadir</button>
-          </div>
-          <div class="task-equipo-tech-tags mt-1" id="equipo-tech-tags">
-            {% for item in technicians_info %}
-            <span class="task-equipo-tag" data-user-id="{{ item.user.pk }}">
-              {{ item.user.get_full_name|default:item.user.username }}
-              <button class="task-equipo-tag-remove" type="button" data-user-id="{{ item.user.pk }}" title="Quitar">×</button>
-            </span>
-            {% endfor %}
-          </div>
-          <div class="task-equipo-search d-none" id="equipo-tech-search">
-            <input type="text" class="form-control form-control-sm" id="equipo-tech-input" placeholder="Buscar compañero..." autocomplete="off">
-            <div class="task-equipo-results" id="equipo-tech-results"></div>
-            <button class="btn btn-sm btn-outline-secondary mt-1" type="button" id="equipo-tech-cancel">Cancelar</button>
-          </div>
-        </div>
-        {% endif %}
 
         <div class="d-flex flex-wrap gap-2">
           {% if map_coords %}
@@ -180,7 +154,6 @@
           {% elif task.address %}
           <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ task.address|urlencode }}">Google Maps</a>
           {% endif %}
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'parte_form' %}?task={{ task.pk %}">Crear parte</a>
           <a class="btn btn-sm btn-outline-secondary" href="{% url 'workdocs_task_pdf' task.pk %}" target="_blank" rel="noopener">Exportar PDF</a>
           {% if can_edit_task %}
           <form class="d-inline" method="post" action="{% url 'workdocs_task_continue' task.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" type="submit">Continuar tarea</button></form>
@@ -188,6 +161,30 @@
         </div>
       </div>
     </div>
+
+    {# Confirm finish modal #}
+    {% if role == 'technician' %}
+    <div class="modal fade" id="finishConfirmModal" tabindex="-1" aria-labelledby="finishConfirmModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="finishConfirmModalLabel">Confirmar cierre del día</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <p>¿Estás seguro de que quieres cerrar la tarea por hoy?</p>
+            <p class="compact-meta">Se enviará el informe y se cerrará tu acceso activo. Si hay un compañero, él puede seguir trabajando de forma independiente.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <form method="post" action="{% url 'workdocs_technician_status' task.pk 'finished' %}">{% csrf_token %}
+              <button class="btn btn-success" type="submit">Sí, cerrar</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   {# ── MAP TAB ── #}
@@ -1097,9 +1094,9 @@
     /* ── Equipo (vehicle + partners) quick-set for technicians ── */
     {% if role == 'technician' %}
     (() => {
-      const vehicleUrl = '{% url "workdocs_task_set_vehicle" task.pk %}';
-      const equipoUrl  = '{% url "workdocs_task_toggle_technician" task.pk %}';
-      const userSearchUrl = '{% url "workdocs_user_search" %}';
+      const vehicleUrl     = '{% url "workdocs_task_set_vehicle" task.pk %}';
+      const equipoUrl      = '{% url "workdocs_task_toggle_technician" task.pk %}';
+      const userSearchUrl  = '{% url "workdocs_user_search" %}';
       const vehicleSearchUrl = '{% url "workdocs_vehicle_search" %}';
 
       const apiFetch = (url, body) => fetch(url, {
@@ -1108,23 +1105,23 @@
         body,
       });
 
-      /* Vehicle */
-      const vehicleBtn    = document.getElementById('equipo-vehicle-btn');
-      const vehicleSearch = document.getElementById('equipo-vehicle-search');
-      const vehicleInput  = document.getElementById('equipo-vehicle-input');
-      const vehicleResults= document.getElementById('equipo-vehicle-results');
-      const vehicleCancel = document.getElementById('equipo-vehicle-cancel');
-      const vehicleDisplay= document.getElementById('equipo-vehicle-display');
+      /* ── Vehicle ── */
+      const vehicleBtn     = document.getElementById('equipo-vehicle-btn');
+      const vehicleSearch  = document.getElementById('equipo-vehicle-search');
+      const vehicleInput   = document.getElementById('equipo-vehicle-input');
+      const vehicleResults = document.getElementById('equipo-vehicle-results');
+      const vehicleCancel  = document.getElementById('equipo-vehicle-cancel');
+      const vehicleDisplay = document.getElementById('task-info-vehicle');
       let vTimer;
 
       vehicleBtn?.addEventListener('click', () => {
-        vehicleSearch.classList.remove('d-none');
-        vehicleInput.focus();
+        vehicleSearch?.classList.remove('d-none');
+        vehicleInput?.focus();
       });
       vehicleCancel?.addEventListener('click', () => {
-        vehicleSearch.classList.add('d-none');
-        vehicleInput.value = '';
-        vehicleResults.innerHTML = '';
+        vehicleSearch?.classList.add('d-none');
+        if (vehicleInput) vehicleInput.value = '';
+        if (vehicleResults) vehicleResults.innerHTML = '';
       });
       vehicleInput?.addEventListener('input', () => {
         clearTimeout(vTimer);
@@ -1132,6 +1129,7 @@
           const q = vehicleInput.value.trim();
           const res = await fetch(`${vehicleSearchUrl}?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
           const items = await res.json();
+          if (!vehicleResults) return;
           vehicleResults.innerHTML = '';
           items.forEach(v => {
             const btn = document.createElement('button');
@@ -1144,57 +1142,56 @@
               const r = await apiFetch(vehicleUrl, fd);
               const data = await r.json();
               if (data.ok) {
-                vehicleDisplay.textContent = data.vehicle ? `${data.vehicle.matricula}${data.vehicle.descripcion ? ' — ' + data.vehicle.descripcion : ''}` : 'Sin vehículo';
-                vehicleSearch.classList.add('d-none');
-                vehicleInput.value = '';
-                vehicleResults.innerHTML = '';
+                if (vehicleDisplay) vehicleDisplay.textContent = data.vehicle
+                  ? (data.vehicle.matricula + (data.vehicle.descripcion ? ' — ' + data.vehicle.descripcion : ''))
+                  : 'Sin vehículo';
+                vehicleSearch?.classList.add('d-none');
+                if (vehicleInput) vehicleInput.value = '';
+                if (vehicleResults) vehicleResults.innerHTML = '';
               }
             });
             vehicleResults.appendChild(btn);
           });
-          if (!items.length) {
-            vehicleResults.innerHTML = '<div class="task-equipo-empty">Sin resultados</div>';
-          }
+          if (!items.length) vehicleResults.innerHTML = '<div class="task-equipo-empty">Sin resultados</div>';
         }, 220);
       });
 
-      /* Partners */
-      const techBtn    = document.getElementById('equipo-tech-btn');
-      const techSearch = document.getElementById('equipo-tech-search');
-      const techInput  = document.getElementById('equipo-tech-input');
-      const techResults= document.getElementById('equipo-tech-results');
-      const techCancel = document.getElementById('equipo-tech-cancel');
-      const techTags   = document.getElementById('equipo-tech-tags');
-      const techList   = document.getElementById('equipo-tech-list');
+      /* ── Partners ── */
+      const techBtn         = document.getElementById('equipo-tech-btn');
+      const techSearch      = document.getElementById('equipo-tech-search');
+      const techInput       = document.getElementById('equipo-tech-input');
+      const techResults     = document.getElementById('equipo-tech-results');
+      const techCancel      = document.getElementById('equipo-tech-cancel');
+      const techTagsContainer = document.getElementById('tech-tags-container');
+      const techTagsInline  = document.getElementById('tech-tags-inline');
       let tTimer;
 
       const refreshTechList = (technicians) => {
-        if (!techTags || !techList) return;
-        techTags.innerHTML = technicians.map(u =>
-          `<span class="task-equipo-tag" data-user-id="${u.id}">
-            ${u.full_name || u.username}
-            <button class="task-equipo-tag-remove" type="button" data-user-id="${u.id}" title="Quitar">×</button>
-          </span>`
-        ).join('');
-        techList.textContent = technicians.map(u => u.full_name || u.username).join(', ') || 'Sin asignar';
+        if (!techTagsContainer) return;
+        techTagsContainer.innerHTML = technicians.length
+          ? technicians.map(u =>
+              `<span class="task-equipo-tag" data-user-id="${u.id}">${u.full_name || u.username}<button class="task-equipo-tag-remove" type="button" data-user-id="${u.id}" title="Quitar">×</button></span>`
+            ).join('')
+          : '<span class="text-muted">Sin asignar</span>';
       };
 
       techBtn?.addEventListener('click', () => {
-        techSearch.classList.remove('d-none');
-        techInput.focus();
+        techSearch?.classList.remove('d-none');
+        techInput?.focus();
       });
       techCancel?.addEventListener('click', () => {
-        techSearch.classList.add('d-none');
-        techInput.value = '';
-        techResults.innerHTML = '';
+        techSearch?.classList.add('d-none');
+        if (techInput) techInput.value = '';
+        if (techResults) techResults.innerHTML = '';
       });
       techInput?.addEventListener('input', () => {
         clearTimeout(tTimer);
         tTimer = setTimeout(async () => {
           const q = techInput.value.trim();
-          if (q.length < 2) { techResults.innerHTML = ''; return; }
+          if (q.length < 2) { if (techResults) techResults.innerHTML = ''; return; }
           const res = await fetch(`${userSearchUrl}?q=${encodeURIComponent(q)}&role=technician`, { credentials: 'same-origin' });
           const items = await res.json();
+          if (!techResults) return;
           techResults.innerHTML = '';
           items.forEach(u => {
             const btn = document.createElement('button');
@@ -1209,9 +1206,9 @@
               const data = await r.json();
               if (data.ok) {
                 refreshTechList(data.technicians);
-                techSearch.classList.add('d-none');
-                techInput.value = '';
-                techResults.innerHTML = '';
+                techSearch?.classList.add('d-none');
+                if (techInput) techInput.value = '';
+                if (techResults) techResults.innerHTML = '';
               }
             });
             techResults.appendChild(btn);
@@ -1220,13 +1217,12 @@
         }, 220);
       });
 
-      techTags?.addEventListener('click', async event => {
+      techTagsInline?.addEventListener('click', async event => {
         const removeBtn = event.target.closest('.task-equipo-tag-remove');
         if (!removeBtn) return;
-        const userId = removeBtn.dataset.userId;
         const fd = new FormData();
         fd.append('action', 'remove');
-        fd.append('user_id', userId);
+        fd.append('user_id', removeBtn.dataset.userId);
         const r = await apiFetch(equipoUrl, fd);
         const data = await r.json();
         if (data.ok) refreshTechList(data.technicians);
