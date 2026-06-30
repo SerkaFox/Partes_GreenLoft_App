@@ -91,5 +91,77 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 {% block scripts %}{% endblock %}
+
+{% if request.user.is_authenticated %}
+{# ── Floating help button ── #}
+<button class="help-float-btn" id="help-float-btn" aria-label="Ayuda" title="Ayuda">?</button>
+
+{# ── Help modal ── #}
+<div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="helpModalLabel">Cómo usar la plataforma</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <ol class="help-modal-steps">
+          <li>
+            <strong>Abre la tarea</strong>
+            <p>En la pantalla principal (<em>Trabajo</em>) haz clic en tu tarea para ver todos los detalles.</p>
+          </li>
+          <li>
+            <strong>Verifica o añade al compañero</strong>
+            <p>En la pestaña <em>Información</em>, junto a <em>Técnicos</em>, usa el botón <strong>+</strong> para añadir a tu compañero. La <strong>×</strong> lo quita.</p>
+          </li>
+          <li>
+            <strong>Selecciona el vehículo</strong>
+            <p>Junto a <em>Vehículo</em> pulsa <strong>✎</strong>, escribe la matrícula y selecciónala.</p>
+          </li>
+          <li>
+            <strong>Sigue el botón de acción</strong>
+            <p>El botón grande cambia solo según tu progreso:</p>
+            <ul>
+              <li><em>He llegado al trabajo</em> → cuando salgas hacia la obra.</li>
+              <li><em>He llegado al objeto</em> → al llegar al lugar.</li>
+              <li><em>Salí del objeto</em> → al terminar y abandonar.</li>
+              <li><em>Cerrar tarea del día</em> → para cerrar definitivamente (requiere informe completo).</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Rellena el Informe</strong>
+            <p>Pestaña <em>Informe</em>: tipo de jornada, horas de entrada/salida, trabajos realizados (puedes dictar por voz con el micrófono 🎙). Se guarda automáticamente.</p>
+          </li>
+          <li>
+            <strong>Cierra la tarea del día</strong>
+            <p>Con el informe completo, pulsa <em>Cerrar tarea del día</em> y confirma. Tu parte queda registrada; tu compañero puede seguir trabajando de forma independiente.</p>
+          </li>
+        </ol>
+        <p class="compact-meta mb-0">Instrucciones completas en el menú <strong>Ayuda</strong>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const HELP_KEY = 'wl_help_clicks';
+  const btn = document.getElementById('help-float-btn');
+  const modal = document.getElementById('helpModal');
+  if (!btn || !modal) return;
+  const count = parseInt(localStorage.getItem(HELP_KEY) || '0');
+  if (count >= 3) { btn.style.display = 'none'; return; }
+  btn.addEventListener('click', () => {
+    const next = parseInt(localStorage.getItem(HELP_KEY) || '0') + 1;
+    localStorage.setItem(HELP_KEY, next);
+    bootstrap.Modal.getOrCreateInstance(modal).show();
+    if (next >= 3) {
+      btn.classList.add('help-float-exit');
+      setTimeout(() => { btn.style.display = 'none'; }, 500);
+    }
+  });
+})();
+</script>
+{% endif %}
 </body>
 </html>
