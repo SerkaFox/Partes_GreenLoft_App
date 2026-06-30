@@ -10,8 +10,19 @@
     <h1 class="h3 mb-1">{{ task.title }}</h1>
     {% if task.address %}<div class="compact-meta">{{ task.address }}</div>{% endif %}
   </div>
-  <div>{% include 'workdocs/partials_status.html' with task=task %}</div>
+  <div class="d-flex align-items-center gap-2">
+    {% include 'workdocs/partials_status.html' with task=task %}
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'workdocs_dashboard' %}" id="back-btn">← Volver</a>
+  </div>
 </div>
+<script>
+(function(){
+  const btn = document.getElementById('back-btn');
+  if (btn && window.history.length > 1) {
+    btn.addEventListener('click', function(e){ e.preventDefault(); window.history.back(); });
+  }
+})();
+</script>
 
 
 {# ── Tab navigation ── #}
@@ -78,6 +89,28 @@
         <p class="mb-3">{{ task.description|linebreaksbr }}</p>
         {% else %}
         <p class="compact-meta mb-3">Sin descripción.</p>
+        {% endif %}
+
+        {# ── Admin: finalizar button ── #}
+        {% if role == 'admin' or role == 'manager' %}
+        {% if task.status != 'FINALIZADA' and task.status != 'CANCELADA' %}
+        <div class="mb-3">
+          {% if task.status == 'PENDIENTE_REVISION' %}
+          <form method="post" action="{% url 'workdocs_task_quick_status' task.pk %}">{% csrf_token %}
+            <input type="hidden" name="status" value="FINALIZADA">
+            <input type="hidden" name="next" value="{% url 'workdocs_task_detail' task.pk %}">
+            <button class="btn btn-success btn-action-main w-100" type="submit">✓ Verificado — Finalizar tarea</button>
+          </form>
+          {% else %}
+          <button class="btn btn-outline-secondary btn-action-main w-100" type="button" disabled title="Los trabajadores aún no han marcado la tarea como lista">Finalizar tarea</button>
+          <div class="compact-meta mt-1 text-center" style="font-size:.8rem;">Esperando a que los trabajadores cierren su jornada</div>
+          {% endif %}
+        </div>
+        {% elif task.status == 'FINALIZADA' %}
+        <div class="mb-3">
+          <a class="btn btn-outline-secondary btn-action-main w-100" href="{% url 'workdocs_task_pdf' task.pk %}" target="_blank" rel="noopener">⬇ Descargar informe PDF</a>
+        </div>
+        {% endif %}
         {% endif %}
 
         {# ── Sequential status action button (technicians only) ── #}
@@ -811,17 +844,19 @@
       el.dataset.matId = mat.id;
       el.innerHTML = `
         <span class="mat-name">${mat.name}</span>
-        <div class="mat-qty-group">
-          <input type="number" class="mat-qty-input" value="${mat.quantity}" min="0.01" step="any">
-          <span class="mat-unit">${mat.unit}</span>
+        <div class="mat-controls">
+          <div class="mat-qty-group">
+            <input type="number" class="mat-qty-input" value="${mat.quantity}" min="0.01" step="any">
+            <span class="mat-unit">${mat.unit}</span>
+          </div>
+          <select class="mat-status-select" aria-label="Estado del material">
+            <option value="falta"   ${mat.status === 'falta'   ? 'selected' : ''}>Falta</option>
+            <option value="pedido"  ${mat.status === 'pedido'  ? 'selected' : ''}>Pedido</option>
+            <option value="almacen" ${mat.status === 'almacen' ? 'selected' : ''}>Almacén</option>
+            <option value="objeto"  ${mat.status === 'objeto'  ? 'selected' : ''}>En obra</option>
+          </select>
+          <button class="mat-del-btn" title="Eliminar">🗑</button>
         </div>
-        <select class="mat-status-select" aria-label="Estado del material">
-          <option value="falta"   ${mat.status === 'falta'   ? 'selected' : ''}>Falta</option>
-          <option value="pedido"  ${mat.status === 'pedido'  ? 'selected' : ''}>Pedido</option>
-          <option value="almacen" ${mat.status === 'almacen' ? 'selected' : ''}>Almacén</option>
-          <option value="objeto"  ${mat.status === 'objeto'  ? 'selected' : ''}>En obra</option>
-        </select>
-        <button class="mat-del-btn" title="Eliminar">🗑</button>
       `;
       return el;
     };

@@ -341,23 +341,31 @@ def _chat_item_for_event(event, viewer):
 
 def _chat_item_for_report(report, viewer):
     _ensure_profile(report.technician)
+    viewer_role = _ensure_profile(viewer).role
+    is_own = report.technician_id == viewer.id
+    can_delete = is_own or viewer_role in {UserProfile.ROLE_ADMIN, UserProfile.ROLE_MANAGER}
     return {
         'kind': 'voice',
         'created_at': report.created_at,
         'user': report.technician,
         'user_url': _task_user_url(report.technician, viewer),
         'report': report,
+        'can_delete': can_delete,
     }
 
 
 def _chat_item_for_file(file_obj, viewer):
     _ensure_profile(file_obj.uploaded_by)
+    viewer_role = _ensure_profile(viewer).role
+    is_own = file_obj.uploaded_by_id == viewer.id
+    can_delete = is_own or viewer_role in {UserProfile.ROLE_ADMIN, UserProfile.ROLE_MANAGER}
     return {
         'kind': 'file',
         'created_at': file_obj.created_at,
         'user': file_obj.uploaded_by,
         'user_url': _task_user_url(file_obj.uploaded_by, viewer),
         'file': file_obj,
+        'can_delete': can_delete,
     }
 
 
@@ -368,7 +376,7 @@ def _render_chat_item(request, task, item):
 def _render_task_file_card(request, task, file_obj):
     return render_to_string(
         'workdocs/partials_task_file_card.html',
-        {'task': task, 'item': file_obj, 'can_manage_users': _can_manage_users(request.user)},
+        {'task': task, 'item': file_obj, 'can_manage_users': _can_manage_users(request.user), 'current_user': request.user},
         request=request,
     )
 
@@ -612,6 +620,7 @@ def task_detail(request, pk):
         'events': _events_for_display(task),
         'chat_items': chat_items,
         'can_manage_users': _can_manage_users(request.user),
+        'current_user': request.user,
         'description_voice_reports': task.voice_reports.filter(report_type=TaskVoiceReport.TYPE_DESCRIPTION).select_related('technician'),
         'my_worker_report': my_worker_report,
         'auto_entrada_obra': auto_entrada_obra,
@@ -647,6 +656,22 @@ def task_comment_delete(request, pk, event_pk):
     event.delete()
     if _wants_json(request):
         return JsonResponse({'ok': True, 'event_id': event_pk})
+    return redirect('workdocs_task_detail', pk=task.pk)
+
+
+@login_required(login_url='/panel/login/')
+@require_POST
+def task_voice_delete(request, pk, report_pk):
+    task = _get_visible_task(request.user, pk)
+    report = get_object_or_404(TaskVoiceReport, pk=report_pk, task=task, report_type=TaskVoiceReport.TYPE_REPORT)
+    role = get_user_role(request.user)
+    if report.technician_id != request.user.id and role not in {UserProfile.ROLE_ADMIN, UserProfile.ROLE_MANAGER}:
+        raise PermissionDenied
+    if report.audio_file:
+        report.audio_file.delete(save=False)
+    report.delete()
+    if _wants_json(request):
+        return JsonResponse({'ok': True, 'report_id': report_pk})
     return redirect('workdocs_task_detail', pk=task.pk)
 
 
@@ -739,9 +764,9 @@ def worker_instructions(request):
 @require_POST
 def task_file_delete(request, pk, file_pk):
     task = _get_visible_task(request.user, pk)
-    if not _can_manage_users(request.user):
-        raise PermissionDenied
     file_obj = get_object_or_404(task.files, pk=file_pk)
+    if file_obj.uploaded_by_id != request.user.id and not _can_manage_users(request.user):
+        raise PermissionDenied
     file_obj.file.delete(save=False)
     file_obj.delete()
     _add_event(task, request.user, TaskEvent.EVENT_FILE, 'Archivo eliminado.')

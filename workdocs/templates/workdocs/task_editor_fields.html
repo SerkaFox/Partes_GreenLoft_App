@@ -5,25 +5,12 @@
   {{ form.technicians }}
   {{ form.vehicle }}
   <div class="row g-3">
-    <div class="col-md-8">
+    <div class="col-12">
       <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
       {{ form.title }}
       {% for error in form.title.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
     </div>
-    <div class="col-md-4">
-      <label class="form-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
-      <div class="d-none">{{ form.status }}</div>
-      <div class="status-button-group d-flex flex-wrap gap-2" data-status-select="{{ form.status.id_for_label }}">
-        <button class="btn btn-sm {% if form.instance.status == 'NUEVA' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-status-value="NUEVA">Nueva</button>
-        <button class="btn btn-sm {% if form.instance.status == 'ASIGNADA' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-status-value="ASIGNADA">Asignada</button>
-        <button class="btn btn-sm {% if form.instance.status == 'EN_CAMINO' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-status-value="EN_CAMINO">En camino</button>
-        <button class="btn btn-sm {% if form.instance.status == 'EN_OBJETO' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-status-value="EN_OBJETO">En objeto</button>
-        <button class="btn btn-sm {% if form.instance.status == 'EN_PROCESO' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-status-value="EN_PROCESO">En proceso</button>
-        <button class="btn btn-sm {% if form.instance.status == 'PENDIENTE_REVISION' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-status-value="PENDIENTE_REVISION">Revisión</button>
-        <button class="btn btn-sm {% if form.instance.status == 'FINALIZADA' %}btn-success{% else %}btn-outline-success{% endif %}" type="button" data-status-value="FINALIZADA">Finalizada</button>
-      </div>
-      {% for error in form.status.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-    </div>
+    <div class="col-md-4 d-none">{{ form.status }}</div>
 
     <div class="col-12">
       <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
@@ -76,7 +63,7 @@
       {% endif %}
     </div>
 
-    <div class="col-12 position-relative">
+    <div class="col-12 position-relative" style="z-index:20">
       <label class="form-label">Técnicos asignados</label>
       <div class="selected-technicians d-flex flex-wrap gap-2 mb-2"></div>
       <input class="form-control technician-search" type="text" placeholder="Escribe el nombre del técnico..." autocomplete="off">
@@ -84,7 +71,7 @@
       {% for error in form.technicians.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
     </div>
 
-    <div class="col-12 position-relative">
+    <div class="col-12 position-relative" style="z-index:10">
       <label class="form-label">Vehículo</label>
       <div class="selected-vehicle mb-2">
         {% if form.instance.vehicle %}

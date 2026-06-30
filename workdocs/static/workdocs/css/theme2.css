@@ -160,7 +160,8 @@ body.workdocs-theme .task-card:focus {
   isolation: isolate;
 }
 
-.task-editor .user-results {
+.task-editor .user-results,
+.technician-results {
   position: absolute;
   z-index: 3000;
   left: 0;
@@ -180,7 +181,7 @@ body.workdocs-theme .task-card:focus {
   padding: 10px 12px;
   border: 0;
   border-bottom: 1px solid rgba(190, 235, 213, .12);
-  background: transparent !important;
+  background: rgba(6, 18, 15, .98) !important;
   color: var(--wl-text);
 }
 
@@ -888,10 +889,9 @@ h1, h2, h3, h4, h5 { color: var(--wl-text); }
 .material-result-new { color: #3ecf8e; font-style: italic; }
 /* ── Material item ── */
 .mat-item {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto;
-  align-items: center;
-  gap: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   padding: 10px 14px;
   border-radius: 8px;
   background: rgba(7, 20, 17, .42);
@@ -911,9 +911,13 @@ h1, h2, h3, h4, h5 { color: var(--wl-text); }
 .mat-name {
   font-size: .9rem;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
+}
+.mat-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .mat-qty-group { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
 .mat-qty-input {
@@ -1375,6 +1379,14 @@ h1, h2, h3, h4, h5 { color: var(--wl-text); }
   color: var(--wl-muted);
   font-size: .9rem;
   line-height: 1.5;
+}
+
+/* ── Dashboard action bar separator ── */
+.dash-action-sep {
+  width: 1px;
+  height: 32px;
+  background: var(--wl-border);
+  flex-shrink: 0;
 }
 
 /* ── Admin dashboard badge buttons ── */

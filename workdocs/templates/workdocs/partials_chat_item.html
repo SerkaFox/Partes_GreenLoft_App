@@ -74,6 +74,12 @@
       <div class="compact-meta">Transcripción pendiente</div>
       {% endif %}
     </div>
+    {% if item.can_delete %}
+    <form class="comment-delete-form mt-1" method="post" action="{% url 'workdocs_task_voice_delete' task.pk item.report.pk %}">
+      {% csrf_token %}
+      <button class="comment-delete-btn" type="submit" title="Eliminar audio">🗑</button>
+    </form>
+    {% endif %}
   </div>
   {% else %}
   <div class="chat-file-message mt-2">
@@ -97,6 +103,12 @@
       <span class="compact-meta align-self-center">Vista previa no disponible</span>
       {% endif %}
       <a class="btn btn-sm btn-outline-primary" href="{{ item.file.file.url }}" download>Descargar</a>
+      {% if item.can_delete %}
+      <form class="comment-delete-form ms-auto" method="post" action="{% url 'workdocs_task_file_delete' task.pk item.file.pk %}">
+        {% csrf_token %}
+        <button class="comment-delete-btn" type="submit" title="Eliminar archivo">🗑</button>
+      </form>
+      {% endif %}
     </div>
   </div>
   {% endif %}

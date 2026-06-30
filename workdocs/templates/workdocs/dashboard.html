@@ -13,30 +13,37 @@
   </div>
 
   {% if role == 'admin' or role == 'manager' %}
-  <div class="d-flex gap-2 flex-wrap align-items-center">
-    <a class="btn btn-primary" href="{% url 'workdocs_task_create' %}">+ Nueva tarea</a>
-    <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#continueTaskModal">Continuar</button>
+  <div class="d-flex flex-wrap align-items-center gap-3">
+    {# Create / continue actions #}
+    <div class="d-flex gap-2">
+      <a class="btn btn-primary" href="{% url 'workdocs_task_create' %}">+ Nueva tarea</a>
+      <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#continueTaskModal">Continuar</button>
+    </div>
 
-    {# Pending review badge #}
-    <button class="btn btn-outline-warning position-relative admin-badge-btn" type="button"
-            data-status-filter="PENDIENTE_REVISION" title="Tareas pendientes de revisión">
-      ⏳ Revisión
-      {% if pending_review_count %}<span class="admin-badge-count">{{ pending_review_count }}</span>{% endif %}
-    </button>
+    <div class="dash-action-sep"></div>
 
-    {# Flagged messages badge #}
-    <button class="btn btn-outline-danger position-relative admin-badge-btn" type="button"
-            id="dash-flagged-btn" title="Mensajes esperando respuesta del responsable">
-      📢 Mensajes
-      {% if flagged_msgs_count %}<span class="admin-badge-count">{{ flagged_msgs_count }}</span>{% endif %}
-    </button>
-
-    {# Filter button + reset #}
-    <div class="d-flex gap-1">
-      <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#filterModal" id="dash-filter-btn">
-        🔍 <span id="dash-filter-label">Filtrar</span>
+    {# Filter / notification buttons #}
+    <div class="d-flex gap-2 flex-wrap">
+      <button class="btn btn-outline-warning position-relative admin-badge-btn" type="button"
+              data-status-filter="PENDIENTE_REVISION" title="Tareas que los trabajadores han marcado como listas para verificar">
+        ⚠ Verificar
+        {% if pending_review_count %}<span class="admin-badge-count">{{ pending_review_count }}</span>{% endif %}
       </button>
-      <button class="btn btn-outline-secondary" type="button" id="dashboard-clear-filters" title="Restablecer filtros">×</button>
+
+      <button class="btn btn-outline-danger position-relative admin-badge-btn" type="button"
+              id="dash-flagged-btn" title="Mensajes esperando respuesta del responsable">
+        📢 Mensajes
+        {% if flagged_msgs_count %}<span class="admin-badge-count">{{ flagged_msgs_count }}</span>{% endif %}
+      </button>
+
+      <button class="btn btn-outline-secondary" type="button" id="dash-archive-btn" title="Ver tareas finalizadas">📁 Archivo</button>
+
+      <div class="d-flex gap-1">
+        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#filterModal" id="dash-filter-btn">
+          🔍 <span id="dash-filter-label">Filtrar</span>
+        </button>
+        <button class="btn btn-outline-secondary" type="button" id="dashboard-clear-filters" title="Restablecer filtros">×</button>
+      </div>
     </div>
   </div>
   {% endif %}
@@ -78,11 +85,9 @@
         <div class="mb-3">
           <label class="form-label compact-meta">Estado</label>
           <div class="d-flex flex-wrap gap-2">
-            <button class="btn btn-sm btn-outline-primary {% if not filters.status %}active{% endif %}" type="button" data-status-filter="">Todos</button>
-            <button class="btn btn-sm btn-outline-warning {% if filters.status == 'PENDIENTE_REVISION' %}active{% endif %}" type="button" data-status-filter="PENDIENTE_REVISION">Revisión</button>
-            <button class="btn btn-sm btn-outline-primary {% if filters.status == 'active' %}active{% endif %}" type="button" data-status-filter="active">Activas</button>
-            <button class="btn btn-sm btn-outline-success {% if filters.status == 'finished' %}active{% endif %}" type="button" data-status-filter="finished">Finalizadas</button>
-            <button class="btn btn-sm btn-outline-secondary {% if filters.status == 'pending' %}active{% endif %}" type="button" data-status-filter="pending">Pendientes</button>
+            <button class="btn btn-sm btn-outline-secondary {% if not filters.status %}active{% endif %}" type="button" data-status-filter="">Todas</button>
+            <button class="btn btn-sm btn-outline-primary {% if filters.status == 'active' %}active{% endif %}" type="button" data-status-filter="active">En proceso</button>
+            <button class="btn btn-sm btn-outline-warning {% if filters.status == 'PENDIENTE_REVISION' %}active{% endif %}" type="button" data-status-filter="PENDIENTE_REVISION">⚠ Verificar</button>
           </div>
         </div>
         <div class="mb-3">
@@ -147,28 +152,6 @@
 })();
 </script>
 
-{# ── Stats bar ── #}
-<div class="dashboard-stats-bar mb-3">
-  <a class="dash-stat-pill text-decoration-none" data-dashboard-status="active">
-    <span class="dash-stat-num">{{ active_count }}</span>
-    <span class="dash-stat-lbl">activas</span>
-  </a>
-  <span class="dash-stat-sep"></span>
-  <a class="dash-stat-pill text-decoration-none" data-dashboard-status="PENDIENTE_REVISION">
-    <span class="dash-stat-num" style="color:#ffc107">{{ pending_review_count }}</span>
-    <span class="dash-stat-lbl">revisión</span>
-  </a>
-  <span class="dash-stat-sep"></span>
-  <a class="dash-stat-pill text-decoration-none" data-dashboard-status="finished">
-    <span class="dash-stat-num" style="color:var(--wl-accent)">{{ finished_count }}</span>
-    <span class="dash-stat-lbl">finalizadas</span>
-  </a>
-  <span class="dash-stat-sep"></span>
-  <a class="dash-stat-pill text-decoration-none" data-dashboard-documents="1">
-    <span class="dash-stat-num" style="color:var(--wl-accent-2)">{{ new_documents_count }}</span>
-    <span class="dash-stat-lbl">documentos</span>
-  </a>
-</div>
 {% endif %}
 
 {% if role == 'technician' %}
@@ -231,7 +214,13 @@
           </div>
         </div>
         <div class="d-flex flex-column align-items-end gap-1 flex-shrink-0">
-          <div class="task-status-block task-status-{{ task.status }}">{{ task.get_status_display }}</div>
+          {% if task.status == 'PENDIENTE_REVISION' %}
+          <div class="task-status-block task-status-PENDIENTE_REVISION">⚠ Verificar</div>
+          {% elif task.status == 'FINALIZADA' %}
+          <div class="task-status-block task-status-FINALIZADA">Finalizada</div>
+          {% elif task.status == 'CANCELADA' %}
+          <div class="task-status-block task-status-CANCELADA">Cancelada</div>
+          {% endif %}
           {% if task.unread_count %}<span class="unread-dot">{{ task.unread_count }}</span>
           {% elif task.comment_count or task.voice_count or task.file_count %}
           <span class="badge text-bg-secondary">{{ task.comment_count|add:task.voice_count|add:task.file_count }}</span>{% endif %}
@@ -265,7 +254,7 @@
       </div>
 
       {# If finished: PDF download button #}
-      {% if task.status == 'FINALIZADA' or task.status == 'PENDIENTE_REVISION' %}
+      {% if task.status == 'FINALIZADA' %}
       <div class="mt-2">
         <a class="btn btn-sm btn-outline-success w-100" href="{% url 'workdocs_task_pdf' task.pk %}" target="_blank" rel="noopener" onclick="event.stopPropagation()">⬇ Descargar informe PDF</a>
       </div>
@@ -341,6 +330,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const grid = document.getElementById('dashboard-task-grid');
   const filterBtn = document.getElementById('dash-filter-btn');
   const filterLabel = document.getElementById('dash-filter-label');
+  const archiveBtn = document.getElementById('dash-archive-btn');
+  let archiveMode = false;
 
   const currentStatus = () => document.querySelector('[data-status-filter].active')?.dataset.statusFilter || '';
   const setStatus = status => {
@@ -371,6 +362,22 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const applyFilters = () => {
+    if (archiveMode) {
+      // Archive mode: show only FINALIZADA, ignore all other filters
+      let visible = 0;
+      taskItems.forEach(item => {
+        const show = item.dataset.isFinished === '1';
+        item.classList.toggle('d-none', !show);
+        if (show) visible++;
+      });
+      const label = `${visible} tarea${visible === 1 ? '' : 's'} en archivo`;
+      if (countLabel) countLabel.textContent = label;
+      if (countHeader) countHeader.textContent = label;
+      emptyState?.classList.toggle('d-none', visible !== 0 || taskItems.length === 0);
+      if (isWorker) updateDayGroups();
+      return;
+    }
+
     const q = normalize(searchInput?.value);
     const status = currentStatus();
     const technician = technicianSelect?.value || '';
@@ -384,10 +391,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const createdDate = item.dataset.createdDate || '';
       const techIds = (item.dataset.technicians || '').split(',').filter(Boolean);
       const isFlagged = item.dataset.flagged === '1';
+      // Always hide finished tasks in normal mode
+      if (item.dataset.isFinished === '1' || itemStatus === 'CANCELADA') {
+        item.classList.add('d-none');
+        return;
+      }
       const matchesStatus = !status
         || (status === 'pending' && item.dataset.isFinished !== '1' && itemStatus !== 'CANCELADA')
         || (status === 'active' && item.dataset.isActive === '1')
-        || (status === 'finished' && item.dataset.isFinished === '1')
         || itemStatus === status;
       const matches = (!q || normalize(item.dataset.search).includes(q))
         && matchesStatus
@@ -477,6 +488,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dateToInput) dateToInput.value = today;
   });
 
+  archiveBtn?.addEventListener('click', () => {
+    archiveMode = !archiveMode;
+    archiveBtn.classList.toggle('btn-secondary', archiveMode);
+    archiveBtn.classList.toggle('btn-outline-secondary', !archiveMode);
+    applyFilters();
+  });
+
+  // Clicking any other filter button exits archive mode
+  [...statusButtons, document.getElementById('dashboard-clear-filters')].forEach(btn => {
+    btn?.addEventListener('click', () => {
+      if (archiveMode) {
+        archiveMode = false;
+        archiveBtn?.classList.remove('btn-secondary');
+        archiveBtn?.classList.add('btn-outline-secondary');
+      }
+    }, { capture: true });
+  });
+
   if (isWorker) {
     const urlStatus = new URLSearchParams(window.location.search).get('status') || '';
     setStatus(urlStatus || 'pending');
@@ -524,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
         body.dataset.loaded = '1';
         try {
           if (body.dataset.type === 'docs') {
-            const res = await apiFetch(`/tareas/${taskId}/archivos-lista/`);
+            const res = await apiFetch(`/trabajo/tareas/${taskId}/archivos-lista/`);
             const data = await res.json();
             if (!data.files.length) { body.innerHTML = '<div class="compact-meta py-1">Sin documentos adjuntos.</div>'; return; }
             body.innerHTML = data.files.map(f =>
@@ -535,7 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
               </a>`
             ).join('');
           } else {
-            const res = await apiFetch(`/tareas/${taskId}/materiales/`);
+            const res = await apiFetch(`/trabajo/tareas/${taskId}/materiales/`);
             const data = await res.json();
             if (!data.materials?.length) { body.innerHTML = '<div class="compact-meta py-1">Sin materiales registrados.</div>'; return; }
             body.innerHTML = data.materials.map(m =>

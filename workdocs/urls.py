@@ -14,6 +14,7 @@ urlpatterns = [
     path('tareas/<int:pk>/', views.task_detail, name='workdocs_task_detail'),
     path('tareas/<int:pk>/comentarios/<int:event_pk>/reaccion/', views.task_comment_reaction, name='workdocs_task_comment_reaction'),
     path('tareas/<int:pk>/comentarios/<int:event_pk>/eliminar/', views.task_comment_delete, name='workdocs_task_comment_delete'),
+    path('tareas/<int:pk>/audio/<int:report_pk>/eliminar/', views.task_voice_delete, name='workdocs_task_voice_delete'),
     path('tareas/<int:pk>/comentarios/<int:event_pk>/flagear/', views.task_flag_message, name='workdocs_task_flag_message'),
     path('tareas/<int:pk>/archivos-lista/', views.task_files_list, name='workdocs_task_files_list'),
     path('tareas/<int:pk>/archivos/<int:file_pk>/eliminar/', views.task_file_delete, name='workdocs_task_file_delete'),

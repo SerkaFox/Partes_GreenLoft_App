@@ -58,10 +58,10 @@
         <a class="nav-link" href="{% url 'workdocs_users' %}">Usuarios</a>
         {% endif %}
         {% if role == 'admin' or role == 'manager' or request.user.is_superuser %}
-        <a class="nav-link" href="{% url 'parte_form' %}">Partes</a>
         <a class="nav-link" href="{% url 'workdocs_vehicles' %}">Vehículos</a>
         {% endif %}
         <a class="nav-link" href="{% url 'workdocs_worker_instructions' %}">Ayuda</a>
+        <button class="nav-link btn btn-link d-none" id="pwa-install-btn" style="color:inherit;padding:0.5rem 1rem;background:none;border:none;">📲 Instalar app</button>
       </div>
       <div class="d-flex gap-2 align-items-center">
         <a class="btn btn-sm btn-outline-light nav-user-link" href="{% url 'workdocs_profile' %}">
@@ -89,6 +89,33 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('{% static "workdocs/sw.js" %}')
     .catch(() => {});
 }
+</script>
+<script>
+(function() {
+  // Only relevant on mobile (touch devices / narrow screens)
+  if (!('ontouchstart' in window) && window.innerWidth > 768) return;
+  const btn = document.getElementById('pwa-install-btn');
+  if (!btn) return;
+  let deferredPrompt = null;
+  // Already installed as standalone PWA → hide button
+  if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) return;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    btn.classList.remove('d-none');
+  });
+  btn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    if (outcome === 'accepted') btn.classList.add('d-none');
+  });
+  window.addEventListener('appinstalled', () => {
+    btn.classList.add('d-none');
+    deferredPrompt = null;
+  });
+})();
 </script>
 {% block scripts %}{% endblock %}
 

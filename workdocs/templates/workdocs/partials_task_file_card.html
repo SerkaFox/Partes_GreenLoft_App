@@ -21,7 +21,7 @@
       <span class="compact-meta align-self-center">Vista previa no disponible</span>
       {% endif %}
       <a class="btn btn-sm btn-outline-primary" href="{{ item.file.url }}" download>Descargar</a>
-      {% if can_manage_users %}
+      {% if can_manage_users or item.uploaded_by == current_user %}
       <form class="task-file-delete-form ms-auto" method="post" action="{% url 'workdocs_task_file_delete' task.pk item.pk %}">
         {% csrf_token %}
         <button class="btn btn-sm btn-outline-danger" type="submit">Eliminar</button>
