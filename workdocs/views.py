@@ -321,6 +321,7 @@ def _chat_item_for_event(event, viewer):
     is_own = event.user_id == viewer.id
     viewer_role = get_user_role(viewer)
     can_delete = is_own or viewer_role in {UserProfile.ROLE_ADMIN, UserProfile.ROLE_MANAGER}
+    can_flag = viewer_role == UserProfile.ROLE_TECHNICIAN or viewer_role in {UserProfile.ROLE_ADMIN, UserProfile.ROLE_MANAGER}
     read_by_others = is_own and any(read.user_id != viewer.id for read in event.reads.all())
     event.user_url = _task_user_url(event.user, viewer)
     event.is_unread = False
@@ -333,6 +334,7 @@ def _chat_item_for_event(event, viewer):
         'event': event,
         'is_own': is_own,
         'can_delete': can_delete,
+        'can_flag': can_flag,
         'read_by_others': read_by_others,
     }
 
@@ -379,6 +381,12 @@ def dashboard(request):
     _filtered_qs, filters = _filtered_tasks_for_request(request, qs)
     tasks = _with_comment_count(qs)
     active_tasks = _with_comment_count(qs.filter(status__in=active_statuses))
+    pending_review_count = qs.filter(status=Task.STATUS_PENDIENTE_REVISION).count()
+    flagged_task_ids = list(
+        TaskEvent.objects.filter(task__in=qs, flagged_for_admin=True, event_type=TaskEvent.EVENT_COMMENT)
+        .values_list('task_id', flat=True).distinct()
+    )
+    flagged_msgs_count = len(flagged_task_ids)
     context = {
         'role': role,
         'tasks': _attach_unread_counts(tasks[:300], request.user),
@@ -386,6 +394,9 @@ def dashboard(request):
         'finished_count': qs.filter(status=Task.STATUS_FINALIZADA).count(),
         'pending_count': qs.exclude(status__in=[Task.STATUS_FINALIZADA, Task.STATUS_CANCELADA]).count(),
         'new_documents_count': TaskFile.objects.filter(task__in=qs).count(),
+        'pending_review_count': pending_review_count,
+        'flagged_msgs_count': flagged_msgs_count,
+        'flagged_task_ids': flagged_task_ids,
         'technicians': [],
         'filter_technicians': _technicians(),
         'statuses': Task.STATUS_CHOICES,
@@ -395,13 +406,19 @@ def dashboard(request):
         today = timezone.localdate()
         technician_scope = active_tasks.filter(Q(created_at__date=today) | Q(updated_at__date=today) | Q(status__in=active_statuses))
         technicians = []
+        today_reports = {
+            r.worker_id: r
+            for r in TaskWorkerReport.objects.filter(date=today, worker__work_profile__role=UserProfile.ROLE_TECHNICIAN)
+        }
         for technician in _technicians():
             tech_tasks = technician_scope.filter(Q(assigned_to=technician) | Q(technicians=technician)).distinct()
             active_count = tech_tasks.count()
             if active_count:
                 technician.active_tasks = active_count
                 technician.last_activity = tech_tasks.aggregate(last_activity=Max('updated_at'))['last_activity']
-                technician.active_task_titles = list(tech_tasks.order_by('-updated_at').values_list('title', flat=True)[:3])
+                top_tasks = list(tech_tasks.order_by('-updated_at')[:3])
+                technician.active_task_objs = top_tasks
+                technician.today_report = today_reports.get(technician.pk)
                 technicians.append(technician)
         context['technicians'] = technicians
     return render(request, 'workdocs/dashboard.html', context)
@@ -631,6 +648,32 @@ def task_comment_delete(request, pk, event_pk):
     if _wants_json(request):
         return JsonResponse({'ok': True, 'event_id': event_pk})
     return redirect('workdocs_task_detail', pk=task.pk)
+
+
+@login_required(login_url='/panel/login/')
+@require_POST
+def task_flag_message(request, pk, event_pk):
+    task = _get_visible_task(request.user, pk)
+    event = get_object_or_404(task.events.filter(event_type=TaskEvent.EVENT_COMMENT), pk=event_pk)
+    event.flagged_for_admin = not event.flagged_for_admin
+    event.save(update_fields=['flagged_for_admin'])
+    return JsonResponse({'ok': True, 'flagged': event.flagged_for_admin})
+
+
+@login_required(login_url='/panel/login/')
+@require_GET
+def task_files_list(request, pk):
+    task = _get_visible_task(request.user, pk)
+    files = task.files.select_related('uploaded_by').order_by('-created_at')[:30]
+    return JsonResponse({'files': [
+        {
+            'id': f.pk,
+            'name': f.original_name or f.file.name.split('/')[-1],
+            'url': f.file.url,
+            'type': f.file_type,
+        }
+        for f in files
+    ]})
 
 
 @login_required(login_url='/panel/login/')

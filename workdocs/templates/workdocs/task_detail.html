@@ -716,6 +716,23 @@
     });
     document.getElementById('comment-reply-clear')?.addEventListener('click', clearReply);
     chatItems?.addEventListener('submit', async event => {
+      const flagForm = event.target.closest('.comment-flag-form');
+      if (flagForm) {
+        event.preventDefault();
+        const response = await fetch(flagForm.action, {
+          method: 'POST', body: new FormData(flagForm), credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', ...(csrf ? {'X-CSRFToken': csrf} : {}) },
+        });
+        const data = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
+        if (response.ok && data?.ok) {
+          const btn = flagForm.querySelector('.comment-flag-btn');
+          if (btn) {
+            btn.classList.toggle('flagged', data.flagged);
+            btn.title = data.flagged ? 'Quitar aviso al responsable' : 'Avisar al responsable';
+          }
+        }
+        return;
+      }
       const delForm = event.target.closest('.comment-delete-form');
       if (delForm) {
         event.preventDefault();

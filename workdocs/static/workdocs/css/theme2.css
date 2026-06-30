@@ -1376,3 +1376,168 @@ h1, h2, h3, h4, h5 { color: var(--wl-text); }
   font-size: .9rem;
   line-height: 1.5;
 }
+
+/* ── Admin dashboard badge buttons ── */
+.admin-badge-btn {
+  position: relative;
+}
+.admin-badge-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--wl-danger);
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+  pointer-events: none;
+}
+.admin-badge-btn.active-filter {
+  background: rgba(255, 100, 100, .18);
+}
+
+/* ── Task card accordion ── */
+.task-card-accordion {
+  margin-top: 10px;
+  border-top: 1px solid var(--wl-border);
+  padding-top: 8px;
+}
+.tca-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tca-toggle {
+  flex: 1;
+  min-width: 130px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--wl-border);
+  border-radius: 8px;
+  color: var(--wl-muted);
+  font-size: .82rem;
+  padding: 6px 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.tca-toggle:hover { background: rgba(73,201,133,.1); color: var(--wl-text); }
+.tca-toggle.open {
+  background: rgba(73,201,133,.14);
+  color: var(--wl-accent);
+  border-color: rgba(73,201,133,.3);
+}
+.tca-arrow { font-size: .75rem; transition: transform .2s; }
+.tca-toggle.open .tca-arrow { transform: rotate(180deg); }
+.tca-body {
+  margin-top: 6px;
+  padding: 4px 0;
+}
+.tca-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  color: var(--wl-text);
+  font-size: .82rem;
+  transition: background .12s;
+  max-width: 100%;
+  overflow: hidden;
+}
+.tca-file-row:hover { background: rgba(73,201,133,.1); }
+.tca-mat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: .82rem;
+  transition: background .12s;
+}
+.tca-mat-row:hover { background: rgba(255,255,255,.05); }
+.tca-loading { padding: 4px 0; }
+
+/* ── Google Maps mini button ── */
+.task-maps-mini-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--wl-accent-2);
+  background: rgba(109,183,255,.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: background .12s;
+  white-space: nowrap;
+}
+.task-maps-mini-btn:hover {
+  background: rgba(109,183,255,.25);
+  color: var(--wl-accent-2);
+}
+
+/* ── Flagged message indicator on task card ── */
+.task-flagged-dot {
+  font-size: .85rem;
+  line-height: 1;
+}
+
+/* ── Technician card task links ── */
+.tech-task-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .83rem;
+  color: var(--wl-text);
+  text-decoration: none;
+  padding: 3px 0;
+  overflow: hidden;
+}
+.tech-task-link:hover { color: var(--wl-accent); }
+.tech-task-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.tech-status-EN_CAMINO { background: #ffc107; }
+.tech-status-EN_OBJETO { background: var(--wl-accent-2); }
+.tech-status-EN_PROCESO { background: var(--wl-accent); }
+.tech-status-PENDIENTE_REVISION { background: #fd7e14; }
+.tech-status-ASIGNADA { background: var(--wl-muted); }
+.tech-status-NUEVA { background: #0d6efd; }
+.tech-status-FINALIZADA { background: rgba(255,255,255,.3); }
+
+/* ── Chat flag button ── */
+.comment-flag-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: .95rem;
+  opacity: .45;
+  transition: opacity .15s, background .15s;
+  padding: 0;
+}
+.comment-flag-btn:hover { opacity: 1; background: rgba(255,193,7,.15); }
+.comment-flag-btn.flagged {
+  opacity: 1;
+  background: rgba(255,193,7,.18);
+}

@@ -46,6 +46,12 @@
       <button class="emoji-button" name="emoji" value="👀" type="submit">👀</button>
       <button class="emoji-button" name="emoji" value="🙏" type="submit">🙏</button>
     </form>
+    {% if item.can_flag %}
+    <form class="comment-flag-form" method="post" action="{% url 'workdocs_task_flag_message' task.pk item.event.pk %}">
+      {% csrf_token %}
+      <button class="comment-flag-btn {% if item.event.flagged_for_admin %}flagged{% endif %}" type="submit" title="{% if item.event.flagged_for_admin %}Quitar aviso al responsable{% else %}Avisar al responsable{% endif %}">📢</button>
+    </form>
+    {% endif %}
     {% if item.can_delete %}
     <form class="comment-delete-form ms-auto" method="post" action="{% url 'workdocs_task_comment_delete' task.pk item.event.pk %}">
       {% csrf_token %}

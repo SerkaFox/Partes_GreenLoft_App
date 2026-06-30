@@ -218,6 +218,7 @@ class TaskEvent(models.Model):
     event_type = models.CharField(max_length=30, choices=EVENT_CHOICES)
     comment = models.TextField(blank=True)
     reactions = models.JSONField(default=dict, blank=True)
+    flagged_for_admin = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

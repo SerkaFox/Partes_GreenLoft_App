@@ -101,14 +101,42 @@ if ('serviceWorker' in navigator) {
   <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="helpModalLabel">Cómo usar la plataforma</h5>
+        <h5 class="modal-title" id="helpModalLabel">{% if role == 'admin' or role == 'manager' %}Guía del responsable{% else %}Cómo usar la plataforma{% endif %}</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
+        {% if role == 'admin' or role == 'manager' %}
+        <ol class="help-modal-steps">
+          <li>
+            <strong>Panel principal</strong>
+            <p>Usa los botones de acción rápida: <em>⏳ Revisión</em> filtra tareas que esperan tu aprobación; <em>📢 Mensajes</em> muestra tareas con mensajes marcados por los técnicos.</p>
+          </li>
+          <li>
+            <strong>Crear y continuar tareas</strong>
+            <p><em>+ Nueva tarea</em> crea una desde cero. <em>Continuar</em> abre el buscador para retomar cualquier tarea existente sin recargar la página.</p>
+          </li>
+          <li>
+            <strong>Filtros</strong>
+            <p>Pulsa <em>🔍 Filtrar</em> para filtrar por estado, técnico o período. El <em>×</em> borra todos los filtros de golpe.</p>
+          </li>
+          <li>
+            <strong>Tarjetas de tarea</strong>
+            <p>Cada tarjeta muestra técnicos, vehículo y el estado puesto por los trabajadores. Despliega <em>Documentos</em> o <em>Materiales</em> con un toque. Si la tarea está finalizada, descarga el informe PDF directamente desde la tarjeta.</p>
+          </li>
+          <li>
+            <strong>Mensajes para el responsable</strong>
+            <p>Dentro de la tarea → Chat, los técnicos pueden pulsar 📢 en un mensaje para enviártelo como aviso. El contador aparece en el panel.</p>
+          </li>
+          <li>
+            <strong>Lista de técnicos</strong>
+            <p>Al pie del panel verás qué técnicos están ocupados, su jornada (intensiva/normal) y a qué tarea pertenecen. El punto de color indica el estado en tiempo real.</p>
+          </li>
+        </ol>
+        {% else %}
         <ol class="help-modal-steps">
           <li>
             <strong>Abre la tarea</strong>
-            <p>En la pantalla principal (<em>Trabajo</em>) haz clic en tu tarea para ver todos los detalles.</p>
+            <p>En la pantalla principal haz clic en tu tarea para ver todos los detalles.</p>
           </li>
           <li>
             <strong>Verifica o añade al compañero</strong>
@@ -120,23 +148,18 @@ if ('serviceWorker' in navigator) {
           </li>
           <li>
             <strong>Sigue el botón de acción</strong>
-            <p>El botón grande cambia solo según tu progreso:</p>
-            <ul>
-              <li><em>He llegado al trabajo</em> → cuando salgas hacia la obra.</li>
-              <li><em>He llegado al objeto</em> → al llegar al lugar.</li>
-              <li><em>Salí del objeto</em> → al terminar y abandonar.</li>
-              <li><em>Cerrar tarea del día</em> → para cerrar definitivamente (requiere informe completo).</li>
-            </ul>
+            <p>El botón grande cambia solo: <em>He llegado al trabajo</em> → <em>He llegado al objeto</em> → <em>Salí del objeto</em> → <em>Cerrar tarea del día</em>.</p>
           </li>
           <li>
             <strong>Rellena el Informe</strong>
-            <p>Pestaña <em>Informe</em>: tipo de jornada, horas de entrada/salida, trabajos realizados (puedes dictar por voz con el micrófono 🎙). Se guarda automáticamente.</p>
+            <p>Pestaña <em>Informe</em>: jornada, horas y trabajos realizados (puedes dictar por voz 🎙). Se guarda automáticamente.</p>
           </li>
           <li>
             <strong>Cierra la tarea del día</strong>
-            <p>Con el informe completo, pulsa <em>Cerrar tarea del día</em> y confirma. Tu parte queda registrada; tu compañero puede seguir trabajando de forma independiente.</p>
+            <p>Con el informe completo, pulsa <em>Cerrar tarea del día</em> y confirma.</p>
           </li>
         </ol>
+        {% endif %}
         <p class="compact-meta mb-0">Instrucciones completas en el menú <strong>Ayuda</strong>.</p>
       </div>
     </div>
