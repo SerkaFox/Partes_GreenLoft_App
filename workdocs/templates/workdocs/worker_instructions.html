@@ -1,0 +1,152 @@
+{% extends 'workdocs/base.html' %}
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <h1 class="h3 mb-0">Instrucciones de uso</h1>
+  <span class="compact-meta">Guía para técnicos</span>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <p class="mb-4">Aquí te explicamos paso a paso cómo usar la plataforma cada día de trabajo.</p>
+
+        <div class="instructions-step">
+          <div class="instructions-step-num">1</div>
+          <div>
+            <div class="instructions-step-title">Abre la tarea asignada</div>
+            <div class="instructions-step-desc">
+              Desde la pantalla principal (<strong>Trabajo</strong>) verás la lista de tareas asignadas a ti.
+              Haz clic en la que corresponda para ver todos los detalles: descripción, dirección, y qué materiales se necesitan.
+            </div>
+          </div>
+        </div>
+
+        <div class="instructions-step">
+          <div class="instructions-step-num">2</div>
+          <div>
+            <div class="instructions-step-title">Verifica o añade a tu compañero</div>
+            <div class="instructions-step-desc">
+              En la pestaña <strong>Información</strong> verás el panel <em>Compañeros</em>.
+              Si el compañero ya está asignado, perfecto. Si no, haz clic en <strong>Añadir</strong>,
+              escribe su nombre y selecciónalo de la lista.
+              También puedes quitarlo pulsando la <strong>×</strong> al lado de su nombre si hay un error.
+            </div>
+          </div>
+        </div>
+
+        <div class="instructions-step">
+          <div class="instructions-step-num">3</div>
+          <div>
+            <div class="instructions-step-title">Selecciona el vehículo</div>
+            <div class="instructions-step-desc">
+              En el mismo panel de <strong>Información</strong> encontrarás el campo <em>Vehículo</em>.
+              Haz clic en <strong>Cambiar</strong>, busca la matrícula o el nombre del vehículo que vas a usar y selecciónalo.
+              Esto ayuda al responsable a saber con qué coche va el equipo.
+            </div>
+          </div>
+        </div>
+
+        <div class="instructions-step">
+          <div class="instructions-step-num">4</div>
+          <div>
+            <div class="instructions-step-title">Sal hacia el trabajo → pulsa "He llegado al trabajo"</div>
+            <div class="instructions-step-desc">
+              Cuando salgas de la base o de tu casa hacia el lugar de trabajo,
+              pulsa el botón <strong>He llegado al trabajo</strong> (o más bien, justo cuando estés ya en camino).
+              Esto registra la hora de salida y actualiza el estado de la tarea.
+            </div>
+          </div>
+        </div>
+
+        <div class="instructions-step">
+          <div class="instructions-step-num">5</div>
+          <div>
+            <div class="instructions-step-title">Al llegar al objeto → pulsa "He llegado al objeto"</div>
+            <div class="instructions-step-desc">
+              En cuanto llegues al lugar de la obra o instalación, pulsa <strong>He llegado al objeto</strong>.
+              El sistema registrará la hora exacta de llegada automáticamente.
+            </div>
+          </div>
+        </div>
+
+        <div class="instructions-step">
+          <div class="instructions-step-num">6</div>
+          <div>
+            <div class="instructions-step-title">Rellena el Informe de jornada</div>
+            <div class="instructions-step-desc">
+              Abre la pestaña <strong>Informe</strong>. Allí deberás completar:
+              <ul class="mt-2 mb-0" style="padding-left:1.2rem;">
+                <li><strong>Tipo de jornada:</strong> Normal (con pausa de comida) o Intensiva (sin pausa).</li>
+                <li><strong>Hora de comida</strong> (si es jornada normal) y <strong>gastos</strong> si los hay.</li>
+                <li><strong>Hora de llegada / salida</strong> del objeto — se rellenan automáticamente, pero puedes ajustarlas si es necesario.</li>
+                <li><strong>Trabajos realizados:</strong> escribe o usa el botón del micrófono 🎙 para dictar por voz lo que has hecho. El sistema lo transcribirá automáticamente.</li>
+              </ul>
+              El informe se guarda solo mientras vas rellenando.
+            </div>
+          </div>
+        </div>
+
+        <div class="instructions-step">
+          <div class="instructions-step-num">7</div>
+          <div>
+            <div class="instructions-step-title">Al salir del objeto → pulsa "Salí del objeto"</div>
+            <div class="instructions-step-desc">
+              Cuando termines el trabajo y abandones el lugar, pulsa <strong>Salí del objeto</strong>.
+              Esto registra la hora de salida.
+            </div>
+          </div>
+        </div>
+
+        <div class="instructions-step">
+          <div class="instructions-step-num">8</div>
+          <div>
+            <div class="instructions-step-title">Finaliza el trabajo</div>
+            <div class="instructions-step-desc">
+              Una vez que el informe esté completo (todos los campos rellenos), pulsa <strong>Trabajo finalizado</strong>.
+              El sistema te pedirá confirmación. Al confirmar:<br>
+              <ul class="mt-2 mb-0" style="padding-left:1.2rem;">
+                <li>Tu acceso activo a la tarea se cierra.</li>
+                <li>Se genera un informe y se notifica al responsable para revisión.</li>
+                <li>Si hay un compañero, <strong>él puede seguir trabajando</strong> con su propio acceso independiente.</li>
+              </ul>
+              <strong>Nota:</strong> No podrás finalizar si el informe está incompleto. El sistema te indicará qué falta.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header fw-semibold compact-meta">Resumen rápido</div>
+      <div class="card-body">
+        <ol class="mb-0" style="padding-left:1.2rem; line-height: 2;">
+          <li>Abrir la tarea</li>
+          <li>Verificar compañero</li>
+          <li>Seleccionar vehículo</li>
+          <li>He llegado al trabajo</li>
+          <li>He llegado al objeto</li>
+          <li>Rellenar Informe</li>
+          <li>Salí del objeto</li>
+          <li>Trabajo finalizado</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header fw-semibold compact-meta">Consejos</div>
+      <div class="card-body compact-meta">
+        <ul style="padding-left:1.2rem; line-height:1.9;">
+          <li>Usa el Chat para comunicarte con el responsable sin salir de la tarea.</li>
+          <li>Puedes subir fotos directamente desde el chat usando el botón <strong>+</strong>.</li>
+          <li>Los materiales que se necesitan para la tarea están en la pestaña <strong>Materiales</strong>. Puedes actualizar su estado (pedido, en almacén, en obra).</li>
+          <li>Para dictar los trabajos por voz, asegúrate de que el navegador tiene permiso para el micrófono.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

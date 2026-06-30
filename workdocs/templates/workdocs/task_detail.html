@@ -138,6 +138,41 @@
           <div class="col-sm-6">Actualizada: {{ task.updated_at|date:'d/m/Y H:i' }}</div>
         </div>
 
+        {% if role == 'technician' %}
+        {# ── Vehicle & partner quick-set for technicians ── #}
+        <div class="task-equipo-panel mb-3">
+          <div class="task-equipo-row">
+            <span class="task-equipo-label">Vehículo</span>
+            <span class="task-equipo-value" id="equipo-vehicle-display">{{ task.vehicle|default:'Sin vehículo' }}</span>
+            <button class="btn btn-sm btn-outline-primary task-equipo-edit-btn" type="button" id="equipo-vehicle-btn">Cambiar</button>
+          </div>
+          <div class="task-equipo-search d-none" id="equipo-vehicle-search">
+            <input type="text" class="form-control form-control-sm" id="equipo-vehicle-input" placeholder="Buscar matrícula o descripción..." autocomplete="off">
+            <div class="task-equipo-results" id="equipo-vehicle-results"></div>
+            <button class="btn btn-sm btn-outline-secondary mt-1" type="button" id="equipo-vehicle-cancel">Cancelar</button>
+          </div>
+
+          <div class="task-equipo-row mt-2">
+            <span class="task-equipo-label">Compañeros</span>
+            <span class="task-equipo-value" id="equipo-tech-list">{% for item in technicians_info %}{{ item.user.get_full_name|default:item.user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin asignar{% endfor %}</span>
+            <button class="btn btn-sm btn-outline-primary task-equipo-edit-btn" type="button" id="equipo-tech-btn">Añadir</button>
+          </div>
+          <div class="task-equipo-tech-tags mt-1" id="equipo-tech-tags">
+            {% for item in technicians_info %}
+            <span class="task-equipo-tag" data-user-id="{{ item.user.pk }}">
+              {{ item.user.get_full_name|default:item.user.username }}
+              <button class="task-equipo-tag-remove" type="button" data-user-id="{{ item.user.pk }}" title="Quitar">×</button>
+            </span>
+            {% endfor %}
+          </div>
+          <div class="task-equipo-search d-none" id="equipo-tech-search">
+            <input type="text" class="form-control form-control-sm" id="equipo-tech-input" placeholder="Buscar compañero..." autocomplete="off">
+            <div class="task-equipo-results" id="equipo-tech-results"></div>
+            <button class="btn btn-sm btn-outline-secondary mt-1" type="button" id="equipo-tech-cancel">Cancelar</button>
+          </div>
+        </div>
+        {% endif %}
+
         <div class="d-flex flex-wrap gap-2">
           {% if map_coords %}
           <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination={{ map_coords }}">Cómo llegar</a>
@@ -1056,6 +1091,146 @@
         recStart.disabled = true;
         recStart.title = 'Micrófono no disponible';
       }
+    })();
+    {% endif %}
+
+    /* ── Equipo (vehicle + partners) quick-set for technicians ── */
+    {% if role == 'technician' %}
+    (() => {
+      const vehicleUrl = '{% url "workdocs_task_set_vehicle" task.pk %}';
+      const equipoUrl  = '{% url "workdocs_task_toggle_technician" task.pk %}';
+      const userSearchUrl = '{% url "workdocs_user_search" %}';
+      const vehicleSearchUrl = '{% url "workdocs_vehicle_search" %}';
+
+      const apiFetch = (url, body) => fetch(url, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', ...(csrf ? {'X-CSRFToken': csrf} : {}) },
+        body,
+      });
+
+      /* Vehicle */
+      const vehicleBtn    = document.getElementById('equipo-vehicle-btn');
+      const vehicleSearch = document.getElementById('equipo-vehicle-search');
+      const vehicleInput  = document.getElementById('equipo-vehicle-input');
+      const vehicleResults= document.getElementById('equipo-vehicle-results');
+      const vehicleCancel = document.getElementById('equipo-vehicle-cancel');
+      const vehicleDisplay= document.getElementById('equipo-vehicle-display');
+      let vTimer;
+
+      vehicleBtn?.addEventListener('click', () => {
+        vehicleSearch.classList.remove('d-none');
+        vehicleInput.focus();
+      });
+      vehicleCancel?.addEventListener('click', () => {
+        vehicleSearch.classList.add('d-none');
+        vehicleInput.value = '';
+        vehicleResults.innerHTML = '';
+      });
+      vehicleInput?.addEventListener('input', () => {
+        clearTimeout(vTimer);
+        vTimer = setTimeout(async () => {
+          const q = vehicleInput.value.trim();
+          const res = await fetch(`${vehicleSearchUrl}?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
+          const items = await res.json();
+          vehicleResults.innerHTML = '';
+          items.forEach(v => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'task-equipo-result';
+            btn.textContent = v.matricula + (v.descripcion ? ` — ${v.descripcion}` : '');
+            btn.addEventListener('click', async () => {
+              const fd = new FormData();
+              fd.append('vehicle_id', v.id);
+              const r = await apiFetch(vehicleUrl, fd);
+              const data = await r.json();
+              if (data.ok) {
+                vehicleDisplay.textContent = data.vehicle ? `${data.vehicle.matricula}${data.vehicle.descripcion ? ' — ' + data.vehicle.descripcion : ''}` : 'Sin vehículo';
+                vehicleSearch.classList.add('d-none');
+                vehicleInput.value = '';
+                vehicleResults.innerHTML = '';
+              }
+            });
+            vehicleResults.appendChild(btn);
+          });
+          if (!items.length) {
+            vehicleResults.innerHTML = '<div class="task-equipo-empty">Sin resultados</div>';
+          }
+        }, 220);
+      });
+
+      /* Partners */
+      const techBtn    = document.getElementById('equipo-tech-btn');
+      const techSearch = document.getElementById('equipo-tech-search');
+      const techInput  = document.getElementById('equipo-tech-input');
+      const techResults= document.getElementById('equipo-tech-results');
+      const techCancel = document.getElementById('equipo-tech-cancel');
+      const techTags   = document.getElementById('equipo-tech-tags');
+      const techList   = document.getElementById('equipo-tech-list');
+      let tTimer;
+
+      const refreshTechList = (technicians) => {
+        if (!techTags || !techList) return;
+        techTags.innerHTML = technicians.map(u =>
+          `<span class="task-equipo-tag" data-user-id="${u.id}">
+            ${u.full_name || u.username}
+            <button class="task-equipo-tag-remove" type="button" data-user-id="${u.id}" title="Quitar">×</button>
+          </span>`
+        ).join('');
+        techList.textContent = technicians.map(u => u.full_name || u.username).join(', ') || 'Sin asignar';
+      };
+
+      techBtn?.addEventListener('click', () => {
+        techSearch.classList.remove('d-none');
+        techInput.focus();
+      });
+      techCancel?.addEventListener('click', () => {
+        techSearch.classList.add('d-none');
+        techInput.value = '';
+        techResults.innerHTML = '';
+      });
+      techInput?.addEventListener('input', () => {
+        clearTimeout(tTimer);
+        tTimer = setTimeout(async () => {
+          const q = techInput.value.trim();
+          if (q.length < 2) { techResults.innerHTML = ''; return; }
+          const res = await fetch(`${userSearchUrl}?q=${encodeURIComponent(q)}&role=technician`, { credentials: 'same-origin' });
+          const items = await res.json();
+          techResults.innerHTML = '';
+          items.forEach(u => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'task-equipo-result';
+            btn.textContent = u.full_name || u.username;
+            btn.addEventListener('click', async () => {
+              const fd = new FormData();
+              fd.append('action', 'add');
+              fd.append('user_id', u.id);
+              const r = await apiFetch(equipoUrl, fd);
+              const data = await r.json();
+              if (data.ok) {
+                refreshTechList(data.technicians);
+                techSearch.classList.add('d-none');
+                techInput.value = '';
+                techResults.innerHTML = '';
+              }
+            });
+            techResults.appendChild(btn);
+          });
+          if (!items.length) techResults.innerHTML = '<div class="task-equipo-empty">Sin resultados</div>';
+        }, 220);
+      });
+
+      techTags?.addEventListener('click', async event => {
+        const removeBtn = event.target.closest('.task-equipo-tag-remove');
+        if (!removeBtn) return;
+        const userId = removeBtn.dataset.userId;
+        const fd = new FormData();
+        fd.append('action', 'remove');
+        fd.append('user_id', userId);
+        const r = await apiFetch(equipoUrl, fd);
+        const data = await r.json();
+        if (data.ok) refreshTechList(data.technicians);
+      });
     })();
     {% endif %}
 

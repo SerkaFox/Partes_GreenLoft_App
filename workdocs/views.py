@@ -635,6 +635,65 @@ def task_comment_delete(request, pk, event_pk):
 
 @login_required(login_url='/panel/login/')
 @require_POST
+def task_set_vehicle(request, pk):
+    task = _get_visible_task(request.user, pk)
+    role = get_user_role(request.user)
+    is_assigned = task.technicians.filter(pk=request.user.pk).exists() or task.assigned_to_id == request.user.pk
+    if role == UserProfile.ROLE_TECHNICIAN and not is_assigned:
+        raise PermissionDenied
+    if not _can_manage_users(request.user) and role != UserProfile.ROLE_TECHNICIAN:
+        raise PermissionDenied
+    vehicle_id = request.POST.get('vehicle_id') or None
+    if vehicle_id:
+        vehicle = get_object_or_404(Vehiculo, pk=vehicle_id)
+        task.vehicle = vehicle
+    else:
+        task.vehicle = None
+    task.save(update_fields=['vehicle', 'updated_at'])
+    label = str(task.vehicle) if task.vehicle else 'Sin vehículo'
+    _add_event(task, request.user, TaskEvent.EVENT_STATUS, f'Vehículo actualizado: {label}.')
+    return JsonResponse({'ok': True, 'vehicle': _vehicle_payload(task.vehicle) if task.vehicle else None})
+
+
+@login_required(login_url='/panel/login/')
+@require_POST
+def task_toggle_technician(request, pk):
+    task = _get_visible_task(request.user, pk)
+    role = get_user_role(request.user)
+    is_assigned = task.technicians.filter(pk=request.user.pk).exists() or task.assigned_to_id == request.user.pk
+    if role == UserProfile.ROLE_TECHNICIAN and not is_assigned:
+        raise PermissionDenied
+    if not _can_manage_users(request.user) and role != UserProfile.ROLE_TECHNICIAN:
+        raise PermissionDenied
+    action = request.POST.get('action')
+    user_id = request.POST.get('user_id')
+    partner = get_object_or_404(User.objects.filter(is_active=True), pk=user_id)
+    if action == 'add':
+        task.technicians.add(partner)
+        if not task.assigned_to_id:
+            task.assigned_to = partner
+            task.save(update_fields=['assigned_to', 'updated_at'])
+        _add_event(task, request.user, TaskEvent.EVENT_ASSIGNED, f'Técnico añadido: {_display_user(partner)}.')
+    elif action == 'remove':
+        task.technicians.remove(partner)
+        if task.assigned_to_id == partner.pk:
+            remaining = list(task.technicians.all()[:1])
+            task.assigned_to = remaining[0] if remaining else None
+            task.save(update_fields=['assigned_to', 'updated_at'])
+        _add_event(task, request.user, TaskEvent.EVENT_ASSIGNED, f'Técnico eliminado: {_display_user(partner)}.')
+    else:
+        raise PermissionDenied
+    technicians = list(task.assigned_technicians)
+    return JsonResponse({'ok': True, 'technicians': [_user_payload(u) for u in technicians]})
+
+
+@login_required(login_url='/panel/login/')
+def worker_instructions(request):
+    return render(request, 'workdocs/worker_instructions.html', {'role': get_user_role(request.user)})
+
+
+@login_required(login_url='/panel/login/')
+@require_POST
 def task_file_delete(request, pk, file_pk):
     task = _get_visible_task(request.user, pk)
     if not _can_manage_users(request.user):
